@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+.eggs/
+logs/
+*.log
+
+# Node.js
+node_modules/
+.next/
+.npm
+*.tgz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Replit (never ignore these)
+# .replit
+# replit.nix
+
+# Data
+data/assets/
+data/transcripts/
+
+# OS
+.DS_Store
+Thumbs.db
