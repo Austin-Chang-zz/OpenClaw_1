@@ -63,8 +63,20 @@ HEALTHY=false
 while [ $ELAPSED -lt $TIMEOUT ]; do
     ALL_HEALTHY=true
     for SVC in postgres redis app; do
+        # docker compose ps --format json outputs one JSON object per line (NDJSON)
         STATUS=$(docker compose -f "$COMPOSE_FILE" ps --format json "$SVC" 2>/dev/null \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('Health','unknown'))" 2>/dev/null || echo "unknown")
+            | python3 -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if line:
+        try:
+            d = json.loads(line)
+            print(d.get('Health', 'unknown'))
+            break
+        except Exception:
+            pass
+" 2>/dev/null || echo "unknown")
         if [ "$STATUS" != "healthy" ]; then
             ALL_HEALTHY=false
         fi
@@ -99,7 +111,7 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo -e "  Backend API:   http://localhost:8000"
 echo -e "  API Docs:      http://localhost:8000/docs"
 echo -e "  Health check:  http://localhost:8000/health"
-echo -e "  Dashboard:     http://localhost:3000  (start frontend separately)"
+echo -e "  Dashboard:     http://localhost:5000  (start frontend separately: cd frontend && npm run dev)"
 echo ""
 echo -e "  Stop all:      docker compose -f docker/docker-compose.yml down"
 echo -e "  View logs:     docker compose -f docker/docker-compose.yml logs -f"

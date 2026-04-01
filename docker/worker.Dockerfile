@@ -29,4 +29,4 @@ USER openclaw
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD python -c "import redis, os; r=redis.from_url(os.environ.get('REDIS_URL','redis://redis:6379/0')); r.ping()" || exit 1
 
-CMD ["rq", "worker", "--url", "${REDIS_URL:-redis://redis:6379/0}", "--with-scheduler", "openclaw"]
+CMD rq worker --url "${REDIS_URL:-redis://redis:6379/0}" --with-scheduler openclaw

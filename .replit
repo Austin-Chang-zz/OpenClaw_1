@@ -43,3 +43,8 @@ externalPort = 80
 deploymentTarget = "autoscale"
 run = ["bash", "run.sh"]
 build = ["bash", "-c", "cd frontend && npm run build"]
+
+[userenv]
+
+[userenv.shared]
+SECRET_KEY = "1f1b29e465f29f4b6d531697f746fe131ce62faae7c2ff8ad300c854ed198cfe"

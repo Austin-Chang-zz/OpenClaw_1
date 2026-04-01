@@ -23,7 +23,11 @@ if [[ "${1:-}" == "--volumes" ]]; then
 fi
 
 info "Stopping all OpenClaw containers..."
-docker compose -f "$COMPOSE_FILE" down --rmi local $( $WIPE_VOLUMES && echo "--volumes" || echo "" )
+if $WIPE_VOLUMES; then
+    docker compose -f "$COMPOSE_FILE" down --rmi local --volumes
+else
+    docker compose -f "$COMPOSE_FILE" down --rmi local
+fi
 
 info "Rebuilding images..."
 docker compose -f "$COMPOSE_FILE" build --no-cache
