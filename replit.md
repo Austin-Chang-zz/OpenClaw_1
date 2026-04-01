@@ -37,6 +37,90 @@ Single workflow: `bash run.sh`
 - Starts Next.js frontend on `0.0.0.0:5000`
 - Frontend proxies `/api/*` → backend via `next.config.js`
 
+## Project Structure
+
+```
+OpenClaw/
+├── backend/                        # Python FastAPI application
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── v1/
+│   │   │       ├── topics.py       # Topic Inbox REST endpoints
+│   │   │       ├── scripts.py      # Script Studio REST endpoints
+│   │   │       ├── jobs.py         # Job Monitor REST endpoints
+│   │   │       └── stock.py        # Stock Engine REST endpoints
+│   │   ├── core/
+│   │   │   ├── config.py           # pydantic-settings, env var loading & validation
+│   │   │   ├── database.py         # SQLAlchemy engine, session, Base
+│   │   │   └── logging.py          # Structured JSON logger (loguru), rotation
+│   │   ├── models/
+│   │   │   ├── topic.py            # Topic table (category, status, score)
+│   │   │   ├── script.py           # Script table (language, tone, duration, version)
+│   │   │   ├── job.py              # Job table (status, retries, input/output)
+│   │   │   └── stock_signal.py     # StockSignal table (MA values, crossover, pivot)
+│   │   ├── providers/              # AI provider adapter layer (planned – Epic 3/4)
+│   │   │   ├── text/               # LLM adapters: OpenAI, Anthropic, DeepSeek, GLM-4
+│   │   │   ├── tts/                # TTS adapters: Edge, ElevenLabs, MiniMax
+│   │   │   ├── image/              # Image gen adapters (planned)
+│   │   │   └── video/              # Video gen adapters (planned)
+│   │   ├── services/               # Business logic engines (planned – Epic 2–6)
+│   │   │   ├── workflow_engine/    # Task queue, DAG scheduler, retry logic
+│   │   │   ├── content_engine/     # Script generator, hook/CTA, metadata packaging
+│   │   │   ├── stock_engine/       # MA calculator, crossover/pivot detector, reporter
+│   │   │   └── video_pipeline/     # TTS → visuals → ffmpeg assembly → subtitle burn
+│   │   ├── utils/                  # Shared helpers (planned)
+│   │   └── main.py                 # FastAPI app entry point, router registration
+│   └── requirements.txt
+│
+├── frontend/                       # Next.js 14 App Router admin dashboard
+│   ├── app/
+│   │   ├── layout.tsx              # Root layout, global metadata
+│   │   ├── page.tsx                # Dashboard home (stats, module nav, pipeline overview)
+│   │   ├── globals.css             # Tailwind base styles
+│   │   ├── topics/page.tsx         # Topic Inbox – list, add, filter by category/status
+│   │   ├── scripts/page.tsx        # Script Studio – list, create, view hook/body/CTA
+│   │   ├── stock/page.tsx          # Stock Engine – 102.5 signals table, refresh trigger
+│   │   └── jobs/page.tsx           # Job Monitor – list, status filter, cancel
+│   ├── components/
+│   │   └── ui/                     # Shared UI components (planned)
+│   ├── lib/                        # Utility functions (planned)
+│   ├── next.config.js              # API proxy rewrite: /api/* → localhost:3001
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── tsconfig.json
+│   └── package.json
+│
+├── docker/                         # Docker Sandbox (planned – Epic 1 / J1.2)
+│   ├── app.Dockerfile              # Python 3.11 – FastAPI app container
+│   ├── worker.Dockerfile           # Python 3.11 – background worker container
+│   └── docker-compose.yml          # Services: app, worker, postgres, redis, ffmpeg
+│
+├── scripts/                        # Utility scripts (planned – Epic 1 / J1.5)
+│   ├── setup.sh                    # One-command setup: checks Docker, ports, runs compose
+│   ├── reset_docker.sh             # Tear down and rebuild containers cleanly
+│   └── backup.sh                   # Backup data volumes
+│
+├── data/
+│   ├── knowledge_base/             # User notes, PDFs, Notion exports for RAG (planned)
+│   ├── transcripts/                # Video transcripts for content extraction (planned)
+│   └── assets/                     # Generated media assets (planned)
+│
+├── tests/                          # Test suites (planned)
+├── docs/                           # Extended documentation (planned)
+│
+├── User/                           # Planning & PRD documents (read-only reference)
+│   ├── OpenClaw_LkkViber_PRD_1.1.md
+│   ├── OpenClaw_LkkViber_Epic1_1.1.md
+│   ├── OpenClaw_for_replit_joblist_1.1.md
+│   ├── OpenClaw_implementation_Plan.md
+│   └── Fundamental_usecase_and_skills.md
+│
+├── run.sh                          # Combined startup: backend (port 3001) + frontend (port 5000)
+├── .env.example                    # Template for all required environment variables
+├── README.md                       # Project overview and quick-start guide
+└── replit.md                       # This file – agent memory and architecture reference
+```
+
 ## Key Files
 
 - `run.sh` – Main startup script
@@ -74,6 +158,127 @@ next@14, react@18, tailwindcss, lucide-react, @radix-ui/*
 - Hot Topics
 - Coding/Workflow
 - Stock Analysis
+
+## Epic 1: Core Architecture & Infrastructure
+
+Source: `User/OpenClaw_LkkViber_Epic1_1.1.md`
+
+**Sprint 1 – Duration:** 2 weeks
+**Goal:** Establish a secure, modular foundation that enables all subsequent epics.
+
+### J1.1 – Monorepo Structure
+
+**Status:** ✅ Implemented (Phase 1)
+
+**Acceptance Criteria:**
+- Folder tree matches PRD: `backend/`, `frontend/`, `docker/`, `scripts/`, `data/`, `tests/`, `docs/`
+- `backend/requirements.txt` includes FastAPI, SQLAlchemy, Pydantic, python-dotenv, loguru, etc.
+- `frontend/package.json` includes Next.js 14, React 18, TailwindCSS
+- `docker/` contains `app.Dockerfile`, `worker.Dockerfile`, `docker-compose.yml` _(planned)_
+
+---
+
+### J1.2 – Docker Sandbox for MacBook
+
+**Status:** 🔲 Planned (Phase 1 — local Mac deployment, not Replit)
+
+**Acceptance Criteria:**
+- `docker-compose.yml` defines exactly five services: `app`, `worker`, `postgres`, `redis`, `ffmpeg`
+- `app` and `worker` share the same base image (Python 3.11)
+- `ffmpeg` uses `jrottenberg/ffmpeg` or a custom image with ffmpeg installed
+- Volume mounts: `./data:/data` and `./assets:/assets` only — **no host root mounts** (e.g., no `/:/host`)
+- All containers run in a user-defined Docker network (isolated from host)
+- Each service includes a health check
+- Secrets are loaded exclusively from `.env` — never hardcoded
+
+**Docker Compose Services:**
+
+| Service | Image | Role | Ports |
+|---------|-------|------|-------|
+| `app` | `python:3.11` (custom) | FastAPI API server | 8000 |
+| `worker` | `python:3.11` (custom) | Background task worker (RQ) | — |
+| `postgres` | `postgres:15` | Primary database | 5432 |
+| `redis` | `redis:7` | Task queue + caching | 6379 |
+| `ffmpeg` | `jrottenberg/ffmpeg` | Media processing service | — |
+
+**Volume Strategy:**
+```
+./data    → /data     (knowledge base, transcripts — read-write)
+./assets  → /assets   (generated media — read-write)
+```
+No other host directories are mounted. This protects the MacBook from agent filesystem access.
+
+**Replit Note:** On Replit, PostgreSQL is provided by the built-in database (see `DATABASE_URL`). Redis is declared in requirements but optional until the workflow engine (Epic 2) is active. The Docker Compose config is intended for local MacBook production deployment.
+
+---
+
+### J1.3 – Environment & Secrets Management
+
+**Status:** ✅ Implemented (Phase 1)
+
+**Acceptance Criteria:**
+- `.env.example` lists all required keys: `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `MINIMAX_API_KEY`
+- Backend loads variables via `pydantic-settings` (`backend/app/core/config.py`)
+- Startup validates required keys; missing keys log a clear error
+- No secrets are hardcoded in any source file
+
+**Required env vars:**
+
+| Variable | Required | Source |
+|----------|----------|--------|
+| `DATABASE_URL` | Yes | Auto-set by Replit / Docker postgres |
+| `REDIS_URL` | No (Epic 2+) | Docker redis / external |
+| `SECRET_KEY` | Yes | Set manually |
+| `OPENAI_API_KEY` | No | Optional AI provider |
+| `ANTHROPIC_API_KEY` | No | Optional AI provider |
+| `DEEPSEEK_API_KEY` | No | Cost-effective Chinese LLM |
+| `MINIMAX_API_KEY` | No | Cost-effective TTS/video |
+
+---
+
+### J1.4 – Centralized Logging
+
+**Status:** ✅ Implemented (Phase 1)
+
+**Acceptance Criteria:**
+- Structured logs with: timestamp, level, message, module, trace_id
+- Log rotation: 100 MB max per file, 7 days retention
+- Both `app` and `worker` services use the same logging format
+- Logs written to stdout (for Docker) and to `backend/logs/openclaw.log`
+
+**Implementation:** `backend/app/core/logging.py` uses `loguru` with two sinks — coloured stdout for development and a rotating file sink for persistence.
+
+---
+
+### J1.5 – Base README & Setup Script
+
+**Status:** ✅ Partially implemented (Phase 1)
+
+**Acceptance Criteria:**
+- `README.md` explains project, prerequisites, and setup steps ✅
+- `./scripts/setup.sh` _(planned)_ is executable and:
+  - Checks Docker is installed and running
+  - Checks ports 8000, 5432, and 6379 are available
+  - Creates `.env` from `.env.example` if not present
+  - Runs `docker-compose up -d` and waits for services to become healthy
+  - Runs database migrations (`alembic upgrade head`)
+  - Prints success message with backend and dashboard URLs
+
+**Replit alternative:** `run.sh` serves the same role for the Replit environment — starts the FastAPI backend (port 3001) and Next.js frontend (port 5000) in a single workflow without Docker.
+
+---
+
+### Sprint 1 Success Metrics
+
+| Metric | Target | Replit status |
+|--------|--------|---------------|
+| All 5 stories implemented | ✅ | ✅ (J1.2 Docker planned for Mac) |
+| `./scripts/setup.sh` runs on clean machine | Docker only | `run.sh` covers Replit |
+| `docker-compose ps` all containers healthy | Docker only | Replit built-in DB used |
+| `GET /health` returns `{"status": "ok"}` | ✅ | ✅ (port 3001) |
+| Dashboard accessible | `localhost:3000` | `localhost:5000` on Replit |
+
+---
 
 ## User Documents
 
