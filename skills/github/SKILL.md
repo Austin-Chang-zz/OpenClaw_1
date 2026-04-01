@@ -29,7 +29,7 @@ Search, create, update, and close GitHub Issues programmatically.
 - "Close issue #42 with comment 'Fixed in commit abc1234'"
 - "List all issues assigned to me that are overdue"
 
-**Implementation file:** `backend/app/skills/github/issues.py` _(planned)_
+**Implementation file:** `skills/github/issues.py` _(planned)_
 
 ---
 
@@ -45,7 +45,7 @@ Check Pull Request status, summarise changes, perform code review, and execute m
 - "Merge PR #15 if all checks pass"
 - "List all open PRs waiting for my review"
 
-**Implementation file:** `backend/app/skills/github/pull_requests.py` _(planned)_
+**Implementation file:** `skills/github/pull_requests.py` _(planned)_
 
 ---
 
@@ -61,7 +61,7 @@ View GitHub Actions workflow run status and logs; diagnose build failures.
 - "Re-run the failed jobs on workflow run #890"
 - "Watch the deploy workflow and notify me when it completes"
 
-**Implementation file:** `backend/app/skills/github/actions.py` _(planned)_
+**Implementation file:** `skills/github/actions.py` _(planned)_
 
 **Local CI/CD files:**
 - `.github/workflows/ci.yml` — runs on every PR to main
@@ -81,7 +81,7 @@ Search repository data, view releases, and list collaborators.
 - "Who are the current collaborators on this repo?"
 - "What is the latest release version?"
 
-**Implementation file:** `backend/app/skills/github/assets.py` _(planned)_
+**Implementation file:** `skills/github/assets.py` _(planned)_
 
 ---
 
@@ -98,7 +98,7 @@ code blocks into a chat window.
 - "Update Gist abc123 with the latest version of the stock signal script"
 - "Share the Gist link for the video pipeline helper"
 
-**Implementation file:** `backend/app/skills/github/gists.py` _(planned)_
+**Implementation file:** `skills/github/gists.py` _(planned)_
 
 ---
 
