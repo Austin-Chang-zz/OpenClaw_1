@@ -1,0 +1,135 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OpenClaw – Docker Compose (Epic 1 / J1.2)
+# For LOCAL MacBook deployment only.
+# On Replit, the built-in PostgreSQL is used instead of the postgres service.
+#
+# Services:  app · worker · postgres · redis · ffmpeg
+# Network:   openclaw-net (user-defined bridge — isolated from host)
+# Volumes:   ./data → /data   ./assets → /assets   (no host root mounts)
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  openclaw-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+
+services:
+
+  # ── App: FastAPI API server ─────────────────────────────────────────────────
+  app:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+    container_name: openclaw-app
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql://openclaw:openclaw@postgres:5432/openclaw
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../data:/data
+      - ../assets:/assets
+    networks:
+      - openclaw-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Worker: RQ background task processor ────────────────────────────────────
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/worker.Dockerfile
+    container_name: openclaw-worker
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql://openclaw:openclaw@postgres:5432/openclaw
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../data:/data
+      - ../assets:/assets
+    networks:
+      - openclaw-net
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis,os; r=redis.from_url(os.environ.get('REDIS_URL','redis://redis:6379/0')); r.ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── PostgreSQL: Primary relational database ──────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: openclaw-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openclaw
+      POSTGRES_PASSWORD: openclaw
+      POSTGRES_DB: openclaw
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - openclaw-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openclaw -d openclaw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Redis: Task queue + caching ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: openclaw-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - openclaw-net
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ── ffmpeg: Media processing service ────────────────────────────────────────
+  ffmpeg:
+    image: jrottenberg/ffmpeg:4.4-alpine
+    container_name: openclaw-ffmpeg
+    restart: "no"
+    volumes:
+      - ../data:/data
+      - ../assets:/assets
+    networks:
+      - openclaw-net
+    entrypoint: ["ffmpeg"]
+    command: ["-version"]
+    profiles:
+      - media
