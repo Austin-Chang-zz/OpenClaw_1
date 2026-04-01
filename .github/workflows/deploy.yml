@@ -1,0 +1,78 @@
+name: OpenClaw Deploy
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STUB — Manual trigger only for now.
+# Future: auto-trigger on push to main after CI passes.
+#
+# Planned deployment path:
+#   1. Build frontend (next build)
+#   2. Push Docker images (app + worker) to container registry
+#   3. Trigger Replit deployment via Replit Deploy API
+#   4. Run post-deploy health check (GET /health → {"status":"ok"})
+#   5. Notify via Telegram/Discord on success or failure
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment target"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: "Skip CI checks before deploy"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate environment
+        run: |
+          echo "Deploying to: ${{ github.event.inputs.environment }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Run CI checks
+        if: ${{ github.event.inputs.skip_tests != 'true' }}
+        run: |
+          echo "Running CI checks before deploy..."
+          echo "TODO: call the CI workflow as a required check"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.API_URL }}
+
+      - name: Deploy to Replit
+        run: |
+          echo "TODO: trigger Replit deployment via Deploy API"
+          echo "Secrets needed: REPLIT_DEPLOY_TOKEN, REPLIT_APP_ID"
+
+      - name: Health check
+        run: |
+          echo "TODO: poll GET ${{ secrets.API_URL }}/health until status=ok"
+
+      - name: Notify on success
+        if: success()
+        run: echo "TODO: send Telegram/Discord notification — deploy succeeded"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "TODO: send Telegram/Discord notification — deploy FAILED"

@@ -108,12 +108,23 @@ OpenClaw/
 ├── tests/                          # Test suites (planned)
 ├── docs/                           # Extended documentation (planned)
 │
+├── skills/                         # OpenClaw agent skill modules
+│   └── github/                     # GitHub Skill (Phase 1 / J1.1)
+│       ├── SKILL.md                # Capability docs, GITHUB_TOKEN guide, example commands
+│       └── config.yml              # YAML config template (planned)
+│
+├── .github/                        # GitHub repository automation
+│   └── workflows/
+│       ├── ci.yml                  # CI: lint + backend smoke test + frontend build on PRs
+│       └── deploy.yml              # Deploy stub: manual trigger, Replit deploy path planned
+│
 ├── User/                           # Planning & PRD documents (read-only reference)
 │   ├── OpenClaw_LkkViber_PRD_1.1.md
 │   ├── OpenClaw_LkkViber_Epic1_1.1.md
 │   ├── OpenClaw_for_replit_joblist_1.1.md
 │   ├── OpenClaw_implementation_Plan.md
-│   └── Fundamental_usecase_and_skills.md
+│   ├── Fundamental_usecase_and_skills.md
+│   └── github_skill.md             # GitHub Skill capability specification (Chinese)
 │
 ├── run.sh                          # Combined startup: backend (port 3001) + frontend (port 5000)
 ├── .env.example                    # Template for all required environment variables
@@ -280,6 +291,47 @@ No other host directories are mounted. This protects the MacBook from agent file
 
 ---
 
+## GitHub Skill
+
+Source: `User/github_skill.md` · Implementation: `skills/github/SKILL.md`
+
+The GitHub Skill is a core OpenClaw module (Phase 1, Epic 1 / J1.1) that lets the AI agent interact directly with the GitHub API — enabling issue management, PR automation, CI/CD monitoring, asset search, and Gist integration. It converts the agent from a passive assistant into an actionable development partner.
+
+### Required Secret
+
+| Variable | Purpose | How to set |
+|----------|---------|-----------|
+| `GITHUB_TOKEN` | GitHub Personal Access Token | GitHub → Settings → Developer settings → Fine-grained tokens. Required scopes: `repo`, `issues`, `pull_requests`, `actions`, `gists`. Add as a Replit secret. |
+
+### Five Capability Areas
+
+| # | Capability | Phase | Epic / Jobs | Files |
+|---|-----------|-------|-------------|-------|
+| 1 | **Issue & Project Management** — search, create, update, close Issues | Phase 1 | Epic 1 (J1.1, J1.5) | `skills/github/issues.py` _(planned)_ |
+| 2 | **PR Automation** — check PR status, summarise changes, code review, merge | Phase 1–2 | Epic 1 (J1.5), Epic 2 (J2.3) | `skills/github/pull_requests.py` _(planned)_ |
+| 3 | **CI/CD Monitoring** — view Actions run status and logs, diagnose failures | Phase 1 | Epic 1 (J1.1) | `.github/workflows/ci.yml`, `skills/github/actions.py` _(planned)_ |
+| 4 | **Asset Management** — search repo data, view releases, list collaborators | Phase 2 | Epic 3 (J3.1) | `skills/github/assets.py` _(planned)_ |
+| 5 | **Gist Integration** — publish code snippets as shareable GitHub Gists | Phase 3 | Epic 4 (J4.x) | `skills/github/gists.py` _(planned)_ |
+
+### CI/CD Workflows
+
+| File | Trigger | Purpose |
+|------|---------|---------|
+| `.github/workflows/ci.yml` | Pull request → `main`; push → `main` | Python 3.11 lint (flake8) + backend import smoke test + Node.js 20 frontend build |
+| `.github/workflows/deploy.yml` | Manual (`workflow_dispatch`) | Stub: documents the planned auto-deploy path to Replit via Deploy API |
+
+### Use Cases
+
+| Use Case | Phase | Description |
+|----------|-------|-------------|
+| **Autonomous Issue Diagnosis** | Phase 1–2 | On error report, agent checks Issues, retrieves code, and suggests a fix |
+| **Code Quality Gatekeeper** | Phase 2 | Auto-reviews new PRs for standards and security; generates summary |
+| **Automated Doc Generation** | Phase 2–3 | On code change, auto-updates README or `docs/` in the repo |
+| **24/7 Ops Assistant** | Phase 3–5 | Periodically checks stale Issues and pings developers |
+| **Cross-Platform Control** | Phase 5 | Accepts commands via Telegram/WhatsApp/Discord to operate on GitHub |
+
+---
+
 ## User Documents
 
 Planning and PRD documents are in `User/`:
@@ -287,6 +339,7 @@ Planning and PRD documents are in `User/`:
 - `OpenClaw_for_replit_joblist_1.1.md` – Job tickets by Epic
 - `OpenClaw_implementation_Plan.md` – Implementation roadmap
 - `Fundamental_usecase_and_skills.md` – Defines the 10 fundamental AI skills, 3 operational protocols, and 7 core use cases with their phase mapping
+- `github_skill.md` – GitHub Skill capability specification (Chinese) — source for `skills/github/SKILL.md`
 
 ## Fundamental Skills, Protocols & Use Cases
 
