@@ -3,6 +3,8 @@ FastAPI stock endpoints (Epic 6 Stock Engine).
 Provides access to ST125 signals, manual triggers, and reports.
 """
 
+import logging
+import math
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -10,6 +12,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from ...core.database import get_db
 from ...models.stock_signal import StockSignal
@@ -283,6 +287,128 @@ def get_phases_legend():
             "is_exit": PhaseScorer.is_exit_signal(phase),
         })
     return {"phases": legend, "total": len(legend)}
+
+
+@router.get("/{symbol}/chart-data")
+def get_chart_data(
+    symbol: str,
+    weeks: int = Query(104, ge=52, le=260, description="Number of weekly bars to return"),
+):
+    """
+    Return weekly OHLCV, W2/W10/W26/W52 MA lines, Parabolic SAR, and
+    fundamentals (P/E, market cap, EPS, 52-wk range, revenue, sector) for a symbol.
+    """
+    try:
+        import yfinance as yf
+        from ...services.stock_engine.data_fetcher import StockDataFetcher
+        from ...services.stock_engine.ma_calculator import MACalculator
+
+        fetcher = StockDataFetcher()
+        years = max(2, math.ceil(weeks / 52))
+
+        weekly_df = fetcher.fetch_weekly_ohlcv(symbol, years=years)
+        if weekly_df is None or weekly_df.empty:
+            raise HTTPException(status_code=404, detail=f"No weekly data for {symbol}")
+
+        weekly_df = MACalculator.calculate_weekly_mas(weekly_df)
+        weekly_df = weekly_df.tail(weeks)
+
+        def _safe(v):
+            try:
+                f = float(v)
+                return None if math.isnan(f) or math.isinf(f) else f
+            except (TypeError, ValueError):
+                return None
+
+        # Build OHLCV bars
+        ohlcv = []
+        for ts, row in weekly_df.iterrows():
+            ohlcv.append({
+                "time": ts.strftime("%Y-%m-%d"),
+                "open":   round(float(row["Open"]),  4),
+                "high":   round(float(row["High"]),  4),
+                "low":    round(float(row["Low"]),   4),
+                "close":  round(float(row["Close"]), 4),
+                "volume": int(row["Volume"]) if _safe(row["Volume"]) is not None else 0,
+            })
+
+        # Build MA line series
+        ma_lines: Dict[str, List[Dict]] = {}
+        for col in ["W2", "W10", "W26", "W52"]:
+            series = []
+            for ts, row in weekly_df.iterrows():
+                v = _safe(row.get(col))
+                if v is not None:
+                    series.append({"time": ts.strftime("%Y-%m-%d"), "value": round(v, 4)})
+            ma_lines[col.lower()] = series
+
+        # Build SAR points
+        sar_points = []
+        for ts, row in weekly_df.iterrows():
+            sv = _safe(row.get("sar_value"))
+            sig = str(row.get("sar_signal", "unknown"))
+            if sv is not None and sig in ("low", "high"):
+                sar_points.append({
+                    "time": ts.strftime("%Y-%m-%d"),
+                    "value": round(sv, 4),
+                    "signal": sig,
+                })
+
+        # Fetch fundamentals from yfinance
+        fundamentals: Dict[str, Any] = {}
+        stock_name = None
+        try:
+            from ...services.stock_engine.ranker import TW_NAMES, US_NAMES
+            stock_name = TW_NAMES.get(symbol) or US_NAMES.get(symbol)
+        except Exception:
+            pass
+
+        try:
+            ticker = yf.Ticker(symbol)
+            fi = ticker.fast_info
+            info: Dict[str, Any] = {}
+            try:
+                info = ticker.info or {}
+            except Exception:
+                pass
+
+            if not stock_name:
+                stock_name = (
+                    getattr(fi, "shortName", None)
+                    or info.get("shortName")
+                    or info.get("longName")
+                    or symbol
+                )
+
+            fundamentals = {
+                "market_cap":    _safe(getattr(fi, "market_cap", None) or info.get("marketCap")),
+                "pe_ratio":      _safe(info.get("trailingPE") or info.get("forwardPE")),
+                "eps":           _safe(info.get("trailingEps")),
+                "week_52_high":  _safe(getattr(fi, "year_high", None) or info.get("fiftyTwoWeekHigh")),
+                "week_52_low":   _safe(getattr(fi, "year_low",  None) or info.get("fiftyTwoWeekLow")),
+                "revenue_ttm":   _safe(info.get("totalRevenue")),
+                "dividend_yield": _safe(info.get("dividendYield") or info.get("trailingAnnualDividendYield")),
+                "sector":        info.get("sector"),
+                "industry":      info.get("industry"),
+                "currency":      getattr(fi, "currency", None) or info.get("currency"),
+                "exchange":      info.get("exchange") or info.get("fullExchangeName"),
+            }
+        except Exception as exc:
+            logger.warning(f"Fundamentals fetch failed for {symbol}: {exc}")
+
+        return {
+            "symbol":       symbol,
+            "stock_name":   stock_name,
+            "ohlcv":        ohlcv,
+            "ma_lines":     ma_lines,
+            "sar":          sar_points,
+            "fundamentals": fundamentals,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"chart-data failed for {symbol}: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/signals/history")

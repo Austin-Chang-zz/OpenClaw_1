@@ -82,6 +82,7 @@ OpenClaw/
 │   │   ├── stock/page.tsx          # Stock Engine – 102.5 signals table, refresh trigger
 │   │   └── jobs/page.tsx           # Job Monitor – list, status filter, cancel
 │   ├── components/
+│   │   ├── StockChartWindow.tsx    # Floating weekly K-chart (react-rnd + lightweight-charts)
 │   │   └── ui/                     # Shared UI components (planned)
 │   ├── lib/                        # Utility functions (planned)
 │   ├── next.config.js              # API proxy rewrite: /api/* → localhost:3001
@@ -157,7 +158,7 @@ OpenClaw/
 fastapi, uvicorn, sqlalchemy, psycopg2-binary, pydantic, pydantic-settings, python-dotenv, httpx, loguru, pandas, yfinance, redis, rq, alembic
 
 ### Node.js packages
-next@14, react@18, tailwindcss, lucide-react, @radix-ui/*
+next@14, react@18, tailwindcss, lucide-react, @radix-ui/*, lightweight-charts@4.2.0 (weekly K-chart canvas), react-rnd@10.4.14 (draggable/resizable floating windows)
 
 ## Content Categories
 

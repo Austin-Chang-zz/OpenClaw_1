@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const StockChartWindow = dynamic(() => import("../../components/StockChartWindow"), { ssr: false });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -104,8 +107,22 @@ export default function StockPage() {
   const [running, setRunning] = useState(false);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [chartWindows, setChartWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
+  const [topZSymbol, setTopZSymbol] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  const openChartWindow = (symbol: string, stockName: string | null) => {
+    setChartWindows(prev =>
+      prev.some(w => w.symbol === symbol)
+        ? prev
+        : [...prev, { symbol, stockName }]
+    );
+    setTopZSymbol(symbol);
+  };
+
+  const closeChartWindow = (symbol: string) => {
+    setChartWindows(prev => prev.filter(w => w.symbol !== symbol));
+  };
 
   const fetchLatest = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -352,7 +369,8 @@ export default function StockPage() {
                     <React.Fragment key={s.symbol}>
                       <tr
                         className="hover:bg-slate-50 cursor-pointer transition-colors"
-                        onClick={() => setExpandedRow(expandedRow === s.symbol ? null : s.symbol)}
+                        onClick={() => openChartWindow(s.symbol, s.stock_name)}
+                        title={`Click to open weekly K-chart for ${s.symbol}`}
                       >
                         <td className="px-4 py-3 text-xs text-slate-400 font-medium">{i + 1}</td>
                         <td className="px-4 py-3">
@@ -420,33 +438,6 @@ export default function StockPage() {
                           )}
                         </td>
                       </tr>
-                      {expandedRow === s.symbol && (
-                        <tr key={`${s.symbol}-detail`} className="bg-slate-50">
-                          <td colSpan={12} className="px-6 py-3">
-                            {s.stock_name && (
-                              <div className="mb-1.5 text-xs text-slate-500 font-medium">
-                                {s.symbol} · <span className="text-slate-700">{s.stock_name}</span>
-                              </div>
-                            )}
-                            <div className="flex items-start gap-2">
-                              <span className="text-slate-400 text-xs mt-0.5">📝</span>
-                              <p className="text-xs text-slate-600 leading-relaxed">{s.explanation || "No explanation available."}</p>
-                            </div>
-                            <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-500">
-                              {[["W10", s.slope_w10], ["W26", s.slope_w26], ["W52", s.slope_w52]].map(([label, val]) =>
-                                val !== null ? (
-                                  <span key={label as string}>
-                                    {label} slope:{" "}
-                                    <span className={(val as number) > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
-                                      {(val as number) > 0 ? "+" : ""}{(val as number).toFixed(3)}%
-                                    </span>
-                                  </span>
-                                ) : null
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -456,7 +447,12 @@ export default function StockPage() {
             {/* Mobile cards */}
             <div className="md:hidden divide-y divide-slate-100">
               {signals.map((s, i) => (
-                <div key={s.symbol} className="px-4 py-3">
+                <div
+                  key={s.symbol}
+                  className="px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                  onClick={() => openChartWindow(s.symbol, s.stock_name)}
+                  title="Tap to open weekly K-chart"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400 w-4">{i + 1}</span>
@@ -538,6 +534,20 @@ export default function StockPage() {
           Please conduct your own due diligence before making any investment decisions.
         </div>
       </main>
+
+      {/* Floating chart windows — rendered outside <main> to avoid z-index clipping */}
+      {chartWindows.map((w, idx) => (
+        <StockChartWindow
+          key={w.symbol}
+          symbol={w.symbol}
+          stockName={w.stockName}
+          market={market}
+          onClose={() => closeChartWindow(w.symbol)}
+          onFocus={() => setTopZSymbol(w.symbol)}
+          zIndex={topZSymbol === w.symbol ? 60 : 50}
+          initialOffset={idx}
+        />
+      ))}
     </div>
   );
 }
