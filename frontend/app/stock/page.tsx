@@ -64,7 +64,7 @@ const PHASE_COLORS: Record<string, string> = {
 };
 
 const PHASE_EMOJI: Record<string, string> = {
-  X1: "🟢", X2: "💚",
+  X1: "🔴", X2: "❤️",
   A1: "📈", A2: "📈", A3: "📊", A4: "📊", A5: "📊",
   B1: "⚠️", B2: "🔴",
   Y1: "🔻", Y2: "⛔",
@@ -78,19 +78,19 @@ const PHASE_GROUP_LABEL: Record<string, string> = {
 };
 
 const getScoreBarColor = (score: number) => {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 60) return "bg-green-400";
+  if (score >= 80) return "bg-red-500";
+  if (score >= 60) return "bg-rose-400";
   if (score >= 40) return "bg-yellow-400";
-  if (score >= 25) return "bg-orange-400";
-  return "bg-red-400";
+  if (score >= 25) return "bg-green-400";
+  return "bg-emerald-400";
 };
 
 const fmt = (v: number | null, dec = 2) =>
   v !== null && v !== undefined ? v.toFixed(dec) : "—";
 
 const sarBadge = (sar: string | null) => {
-  if (sar === "low") return <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">🔵 low</span>;
-  if (sar === "high") return <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">🔴 high</span>;
+  if (sar === "low") return <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">🔴 low</span>;
+  if (sar === "high") return <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">🔵 high</span>;
   return <span className="text-xs text-gray-400">—</span>;
 };
 
@@ -260,8 +260,8 @@ export default function StockPage() {
                 <span className="bg-slate-100 rounded px-2 py-0.5">W26=D132 (6mo)</span>
                 <span className="bg-slate-100 rounded px-2 py-0.5">W10=D50 (10wk)</span>
                 <span className="bg-slate-100 rounded px-2 py-0.5">W2=D10 (2wk)</span>
-                <span className="bg-blue-50 text-blue-700 rounded px-2 py-0.5">🔵 SAR low = support</span>
-                <span className="bg-red-50 text-red-700 rounded px-2 py-0.5">🔴 SAR high = pressure</span>
+                <span className="bg-red-50 text-red-700 rounded px-2 py-0.5">🔴 SAR low = support</span>
+                <span className="bg-blue-50 text-blue-700 rounded px-2 py-0.5">🔵 SAR high = pressure</span>
               </div>
             </div>
           </div>
