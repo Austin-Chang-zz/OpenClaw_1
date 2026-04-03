@@ -16,7 +16,10 @@ async def lifespan(app: FastAPI):
     logger.info("OpenClaw {} starting up — creating database tables...", settings.app_version)
     create_tables()
     logger.info("Database tables ready.")
+    from .services.stock_engine.scheduler import start_scheduler, stop_scheduler
+    start_scheduler()
     yield
+    stop_scheduler()
     logger.info("OpenClaw shutting down.")
 
 

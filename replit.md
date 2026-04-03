@@ -332,6 +332,102 @@ The GitHub Skill is a core OpenClaw module (Phase 1, Epic 1 / J1.1) that lets th
 
 ---
 
+## Epic 6: Stock Engine (ST125 / 102.5 Theory)
+
+Source: `User/ST125_2.pdf`, `User/ST125.pdf`
+
+**Status:** ✅ Phase 1 Built
+
+### Theory Overview
+
+ST125 uses weekly SMA crossovers + slope direction + Parabolic SAR to classify stocks into 14 sub-phases.
+
+**MA Equivalences (weekly ↔ daily):**
+| Weekly | Daily | Period |
+|--------|-------|--------|
+| W2 | D10 | ~2 weeks = 10 daily bars |
+| W10 | D50 | ~10 weeks = 50 daily bars |
+| W26 | D132 | ~26 weeks = half-year |
+| W52 | D260 | ~52 weeks = 1 year |
+
+**Classification inputs:**
+- MA values: W2, W10, W26, W52 (SMA on weekly bars)
+- MA slopes: percentage change per period
+- SAR signal: "low" (SAR < close = bullish support), "high" (SAR > close = bearish pressure)
+- Crossover events: W2 XO W10, W10 XO W26, etc. (lookback 3 bars)
+
+### 14 Sub-Phases & Scores
+
+| Phase | MA Ordering | Slope Conditions | SAR | Score | Signal |
+|-------|-------------|------------------|-----|-------|--------|
+| **X2** | W52>W26>W10 | W52/W26 negative | low | **94** | 🎯 Best bottom entry |
+| **X1** | W52>W26>W10 | W52/W26/W10 negative | — | **88** | 🎯 Bottom entry |
+| **A1** | W52>W26, W10 XO W26 | W52/W26 negative | low | **82** | 📈 Bull confirmed |
+| **A2** | W52>W10>W26 | W52 negative | low | **75** | 📈 Bull progressing |
+| **A3** | W10>W52>W26 | W52 negative | — | **67** | 📊 Mid-bull |
+| **A4** | W10>W26>W52 | W52 positive | — | **58** | 📊 Mature bull |
+| **A5** | W26>W10>W52 | W52 positive | — | **50** | 📊 Late bull |
+| **B1** | W10>W26>W52 | All positive | — | **40** | ⚠️ Full bull (overbought) |
+| **B2** | W10>W26>W52 | All positive + W10 accel | — | **32** | 🔴 Peak bull |
+| **Y1** | W10>W26>W52 | All positive, W2 UN W10 | — | **15** | 🔻 Top forming |
+| **Y2** | W10>W26>W52 | W52/W26 positive, W2 UN W10 | high | **8** | ⛔ Confirmed top — EXIT |
+| **C1** | W52<W26, W10 UN W26 | W52/W26 positive | high | **22** | 📉 Early bear |
+| **C2** | W52<W10<W26 | W52 positive | high | **20** | 📉 Bear progressing |
+| **C3** | W10<W52<W26 | W52 positive | — | **18** | 📉 Mid-bear |
+| **C4** | W10<W26<W52 | W52 negative | — | **15** | 📉 Deep bear |
+| **C5** | W26<W10<W52 | W52 negative | — | **12** | 📉 Late bear |
+| **D1** | W10<W26<W52 | All negative | — | **30** | 💀 Full bear |
+| **D2** | W10<W26<W52 | All negative + W10 accel↓ | — | **35** | 💀 Bear bottom watch |
+
+**Bearish exit triggers:** Phase Y→C transition (Y1, Y2, C1, C2)
+
+### Watchlists
+
+**Taiwan (TW):** Top 100 stocks by daily volume × avg(OHLC) in NT$ 100M. Data via yfinance `.TW` suffix.
+
+**US:** S&P 500 top 100 by dollar volume + forced Big 7 (AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA) + TSM.
+
+### Schedule (Phase 1)
+
+| Market | Analysis Time | UTC |
+|--------|-------------|-----|
+| TW | After 14:00 Taipei (UTC+8) | 06:00 UTC |
+| US | After 17:00 ET | 22:00 UTC |
+
+### File Map
+
+```
+backend/app/services/stock_engine/
+├── __init__.py           # Exports all classes
+├── data_fetcher.py       # J6.1 — yfinance OHLCV, TW/US watchlists
+├── ma_calculator.py      # J6.2 — W2/W10/W26/W52 SMA, slopes, SAR
+├── phase_classifier.py   # J6.3 — 14 sub-phase rules from ST125_2.pdf
+├── scorer.py             # J6.4 — base scores + volume/slope bonuses
+├── ranker.py             # J6.4 — full pipeline, top-N ranking
+├── report_generator.py   # J6.5 — Markdown + Telegram delivery
+└── scheduler.py          # J6.5 — daily cron (06:00 TW, 22:00 US)
+
+backend/app/api/v1/stock.py
+  GET  /api/v1/stock/signals          — list signals (filter by market/date/phase)
+  GET  /api/v1/stock/signals/latest   — most recent day's top signals
+  GET  /api/v1/stock/signals/history  — phase history for one symbol
+  GET  /api/v1/stock/live             — real-time analysis (no DB save)
+  POST /api/v1/stock/run-analysis     — sync full-market run + DB save
+  POST /api/v1/stock/run-analysis/async — background trigger
+  GET  /api/v1/stock/report/latest    — latest markdown report content
+  GET  /api/v1/stock/phases/legend    — phase scoring legend
+```
+
+### Additional Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token for daily signal delivery |
+| `TELEGRAM_CHAT_ID` | Target chat/channel ID |
+| `FINMIND_API_TOKEN` | FinMind TW data API (optional, free tier) |
+
+---
+
 ## User Documents
 
 Planning and PRD documents are in `User/`:
