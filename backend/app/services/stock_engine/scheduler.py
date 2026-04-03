@@ -12,7 +12,8 @@ import asyncio
 import logging
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from typing import Any, Dict, List
 
 import pytz
 import schedule
@@ -29,6 +30,50 @@ _scheduler_thread: threading.Thread = None
 _stop_event = threading.Event()
 
 
+def _save_signals_to_db(signals: List[Dict[str, Any]], market: str) -> int:
+    """
+    Upsert ranked signals into the stock_signals table.
+    Matches on (symbol, market, signal_date). Returns number of rows saved.
+    Uses deferred imports to avoid circular-import issues at module load.
+    """
+    from app.core.database import SessionLocal
+    from app.models.stock_signal import StockSignal
+
+    today = date.today()
+    db = SessionLocal()
+    saved = 0
+    try:
+        for s in signals:
+            existing = (
+                db.query(StockSignal)
+                .filter(
+                    StockSignal.symbol == s.get("symbol"),
+                    StockSignal.market == market,
+                    StockSignal.signal_date == today,
+                )
+                .first()
+            )
+            if existing:
+                for k, v in s.items():
+                    if hasattr(existing, k):
+                        setattr(existing, k, v)
+            else:
+                row = StockSignal(**{k: v for k, v in s.items() if hasattr(StockSignal, k)})
+                row.market = market
+                row.signal_date = today
+                db.add(row)
+            saved += 1
+        db.commit()
+        logger.info(f"Saved {saved} {market} signals to DB for {today}")
+        return saved
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"DB save failed for {market}: {exc}")
+        return 0
+    finally:
+        db.close()
+
+
 def run_tw_analysis() -> None:
     logger.info("Starting TW daily stock analysis …")
     try:
@@ -42,6 +87,9 @@ def run_tw_analysis() -> None:
         reporter.save_report(md, "TW")
 
         if tw_signals:
+            saved = _save_signals_to_db(tw_signals, "TW")
+            logger.info(f"TW DB save: {saved} rows")
+
             tg_msg = reporter.generate_telegram_message(tw_signals, "TW")
             asyncio.run(reporter.send_telegram(tg_msg))
 
@@ -63,6 +111,9 @@ def run_us_analysis() -> None:
         reporter.save_report(md, "US")
 
         if us_signals:
+            saved = _save_signals_to_db(us_signals, "US")
+            logger.info(f"US DB save: {saved} rows")
+
             tg_msg = reporter.generate_telegram_message(us_signals, "US")
             asyncio.run(reporter.send_telegram(tg_msg))
 

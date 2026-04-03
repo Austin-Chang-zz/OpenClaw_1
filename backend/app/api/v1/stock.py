@@ -248,7 +248,8 @@ def get_live_signals(
 def get_latest_report(market: str = Query("TW")):
     """Return the contents of the latest saved markdown report."""
     from pathlib import Path
-    report_dir = Path("data/stock_reports")
+    from ...services.stock_engine.report_generator import REPORT_DIR
+    report_dir = REPORT_DIR
     pattern = f"st125_{market}_*.md"
     files = sorted(report_dir.glob(pattern))
     if not files:

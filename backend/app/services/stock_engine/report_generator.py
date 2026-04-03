@@ -34,7 +34,8 @@ PHASE_EMOJI = {
     "MIXED": "❓", "UNKNOWN": "❔",
 }
 
-REPORT_DIR = Path("data/stock_reports")
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+REPORT_DIR = _REPO_ROOT / "data" / "stock_reports"
 
 
 class ReportGenerator:
