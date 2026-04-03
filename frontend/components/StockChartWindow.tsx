@@ -1,9 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Rnd } from "react-rnd";
+import type {
+  IChartApi,
+  ISeriesApi,
+  Time,
+  SeriesMarker,
+  MouseEventParams,
+} from "lightweight-charts";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Data types ─────────────────────────────────────────────────────────────────
 
 interface OHLCBar {
   time: string;
@@ -48,6 +55,17 @@ interface ChartData {
   fundamentals: Fundamentals;
 }
 
+interface OHLCTooltip {
+  x: number;
+  y: number;
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 interface Props {
   symbol: string;
   stockName: string | null;
@@ -58,13 +76,13 @@ interface Props {
   initialOffset?: number;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtBig(v: number | null | undefined): string {
   if (v == null) return "—";
   if (Math.abs(v) >= 1e12) return (v / 1e12).toFixed(2) + "T";
-  if (Math.abs(v) >= 1e9)  return (v / 1e9).toFixed(2) + "B";
-  if (Math.abs(v) >= 1e6)  return (v / 1e6).toFixed(2) + "M";
+  if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(2) + "B";
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(2) + "M";
   return v.toFixed(2);
 }
 
@@ -78,7 +96,21 @@ function fmtNum(v: number | null | undefined, dec = 2): string {
   return v.toFixed(dec);
 }
 
-// ── StockChartWindow ──────────────────────────────────────────────────────────
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
+// ── StockChartWindow ───────────────────────────────────────────────────────────
 
 export default function StockChartWindow({
   symbol,
@@ -90,15 +122,15 @@ export default function StockChartWindow({
   initialOffset = 0,
 }: Props) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
   const [data, setData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    setIsMobile(window.innerWidth < 768);
-  }, []);
+  const [tooltip, setTooltip] = useState<OHLCTooltip | null>(null);
+  const isMobile = useIsMobile();
 
   // Fetch chart data
   useEffect(() => {
@@ -107,23 +139,34 @@ export default function StockChartWindow({
     fetch(`/api/v1/stock/${encodeURIComponent(symbol)}/chart-data`)
       .then((r) => {
         if (!r.ok) throw new Error(`Server error ${r.status}`);
-        return r.json();
+        return r.json() as Promise<ChartData>;
       })
-      .then((d: ChartData) => { setData(d); setLoading(false); })
-      .catch((e) => { setError(e.message); setLoading(false); });
+      .then((d) => {
+        setData(d);
+        setLoading(false);
+      })
+      .catch((e: Error) => {
+        setError(e.message);
+        setLoading(false);
+      });
   }, [symbol]);
 
-  // Build chart once data arrives
-  useEffect(() => {
-    if (!data) return;
-    let cancelled = false;
+  // Build/rebuild chart when data arrives
+  const buildChart = useCallback(() => {
+    if (!data || !chartContainerRef.current) return;
 
     import("lightweight-charts").then(({ createChart, CrosshairMode }) => {
-      if (cancelled || !chartContainerRef.current) return;
+      if (!chartContainerRef.current) return;
 
+      // Tear down previous chart if any
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
+        candleSeriesRef.current = null;
+      }
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
       }
 
       const container = chartContainerRef.current;
@@ -162,17 +205,22 @@ export default function StockChartWindow({
         wickDownColor: "#22c55e",
       });
       candleSeries.setData(data.ohlcv);
+      candleSeriesRef.current = candleSeries;
 
-      // MA lines
-      const maConfigs = [
+      // Volume lookup map for tooltip
+      const volumeByTime = new Map<string, number>(
+        data.ohlcv.map((b) => [b.time, b.volume])
+      );
+
+      // MA overlay lines
+      const maConfigs: { key: keyof ChartData["ma_lines"]; color: string; lineWidth: 1 | 2; title: string }[] = [
         { key: "w2",  color: "#94a3b8", lineWidth: 1, title: "W2"  },
         { key: "w10", color: "#3b82f6", lineWidth: 2, title: "W10" },
         { key: "w26", color: "#f97316", lineWidth: 2, title: "W26" },
         { key: "w52", color: "#ef4444", lineWidth: 2, title: "W52" },
-      ] as const;
-
+      ];
       for (const cfg of maConfigs) {
-        const lineData = data.ma_lines[cfg.key as keyof typeof data.ma_lines] ?? [];
+        const lineData = data.ma_lines[cfg.key] ?? [];
         if (lineData.length > 0) {
           const ls = chart.addLineSeries({
             color: cfg.color,
@@ -187,10 +235,10 @@ export default function StockChartWindow({
       }
 
       // SAR markers on candlestick series
-      const sarMarkers = data.sar
+      const sarMarkers: SeriesMarker<Time>[] = data.sar
         .filter((p) => p.signal === "low" || p.signal === "high")
         .map((p) => ({
-          time: p.time as any,
+          time: p.time as Time,
           position: p.signal === "low" ? "belowBar" : "aboveBar",
           color: p.signal === "low" ? "#ef4444" : "#3b82f6",
           shape: "circle" as const,
@@ -203,7 +251,33 @@ export default function StockChartWindow({
 
       chart.timeScale().fitContent();
 
-      // Respond to container resize
+      // OHLC hover tooltip — subscribe to crosshair move
+      chart.subscribeCrosshairMove((param: MouseEventParams) => {
+        if (!param.time || !param.point || !candleSeriesRef.current) {
+          setTooltip(null);
+          return;
+        }
+        const barData = param.seriesData.get(candleSeriesRef.current) as
+          | { open: number; high: number; low: number; close: number }
+          | undefined;
+        if (!barData) {
+          setTooltip(null);
+          return;
+        }
+        const timeKey = typeof param.time === "string" ? param.time : String(param.time);
+        setTooltip({
+          x: param.point.x,
+          y: param.point.y,
+          date: timeKey,
+          open: barData.open,
+          high: barData.high,
+          low: barData.low,
+          close: barData.close,
+          volume: volumeByTime.get(timeKey) ?? 0,
+        });
+      });
+
+      // Resize observer
       const observer = new ResizeObserver(() => {
         if (chartRef.current && chartContainerRef.current) {
           chartRef.current.applyOptions({
@@ -213,34 +287,35 @@ export default function StockChartWindow({
         }
       });
       observer.observe(container);
-
-      (chart as any).__observer = observer;
+      observerRef.current = observer;
     });
-
-    return () => {
-      cancelled = true;
-      if (chartRef.current) {
-        (chartRef.current as any).__observer?.disconnect();
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
-    };
   }, [data]);
 
-  // ── Inner content ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    buildChart();
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+      chartRef.current?.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+    };
+  }, [buildChart]);
+
+  // ── Shared inner content ───────────────────────────────────────────────────
 
   const fundamentals = data?.fundamentals ?? {};
-  const fundRows = [
-    ["Market Cap",   fmtBig(fundamentals.market_cap)],
-    ["P/E Ratio",    fmtNum(fundamentals.pe_ratio, 1)],
-    ["EPS",          fmtNum(fundamentals.eps, 2)],
-    ["52-Wk High",   fmtNum(fundamentals.week_52_high, 2)],
-    ["52-Wk Low",    fmtNum(fundamentals.week_52_low, 2)],
-    ["Revenue TTM",  fmtBig(fundamentals.revenue_ttm)],
-    ["Div. Yield",   fmtPct(fundamentals.dividend_yield)],
-    ["Sector",       fundamentals.sector ?? "—"],
-    ["Industry",     fundamentals.industry ?? "—"],
-    ["Currency",     fundamentals.currency ?? "—"],
+  const fundRows: [string, string][] = [
+    ["Market Cap",  fmtBig(fundamentals.market_cap)],
+    ["P/E Ratio",   fmtNum(fundamentals.pe_ratio, 1)],
+    ["EPS",         fmtNum(fundamentals.eps, 2)],
+    ["52-Wk High",  fmtNum(fundamentals.week_52_high, 2)],
+    ["52-Wk Low",   fmtNum(fundamentals.week_52_low, 2)],
+    ["Revenue TTM", fmtBig(fundamentals.revenue_ttm)],
+    ["Div. Yield",  fmtPct(fundamentals.dividend_yield)],
+    ["Sector",      fundamentals.sector ?? "—"],
+    ["Industry",    fundamentals.industry ?? "—"],
+    ["Currency",    fundamentals.currency ?? "—"],
   ];
 
   const innerContent = (
@@ -248,14 +323,18 @@ export default function StockChartWindow({
       className="flex flex-col w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl border border-slate-200"
       onMouseDown={onFocus}
     >
-      {/* Title bar — drag handle */}
+      {/* Title bar / drag handle */}
       <div className="chart-drag-handle flex items-center justify-between pl-4 pr-3 py-2 bg-slate-800 text-white flex-shrink-0 cursor-move select-none">
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-mono font-bold text-sm text-white">{symbol}</span>
           {(data?.stock_name ?? stockName) && (
-            <span className="text-slate-300 text-xs truncate">{data?.stock_name ?? stockName}</span>
+            <span className="text-slate-300 text-xs truncate">
+              {data?.stock_name ?? stockName}
+            </span>
           )}
-          <span className="text-slate-500 text-[11px] hidden sm:inline">· Weekly K-Chart</span>
+          <span className="text-slate-500 text-[11px] hidden sm:inline">
+            · Weekly K-Chart
+          </span>
         </div>
         <button
           onMouseDown={(e) => e.stopPropagation()}
@@ -271,14 +350,32 @@ export default function StockChartWindow({
       <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
         {loading && (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
-            <svg className="animate-spin h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="animate-spin h-6 w-6 text-blue-400"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
             <span className="text-sm">Loading weekly chart data…</span>
-            <span className="text-xs text-slate-400">Fetching 2 years of data from Yahoo Finance</span>
+            <span className="text-xs text-slate-400">
+              Fetching 2 years of data from Yahoo Finance
+            </span>
           </div>
         )}
+
         {error && !loading && (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8 gap-2">
             <span className="text-2xl">⚠️</span>
@@ -286,18 +383,24 @@ export default function StockChartWindow({
             <p className="text-xs text-slate-500">{error}</p>
           </div>
         )}
+
         {!loading && !error && data && (
           <>
-            {/* MA Legend */}
+            {/* MA legend */}
             <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-xs flex-shrink-0 flex-wrap">
-              {[
-                { label: "W2",  color: "#94a3b8" },
-                { label: "W10", color: "#3b82f6" },
-                { label: "W26", color: "#f97316" },
-                { label: "W52", color: "#ef4444" },
-              ].map(({ label, color }) => (
+              {(
+                [
+                  { label: "W2",  color: "#94a3b8" },
+                  { label: "W10", color: "#3b82f6" },
+                  { label: "W26", color: "#f97316" },
+                  { label: "W52", color: "#ef4444" },
+                ] as const
+              ).map(({ label, color }) => (
                 <span key={label} className="flex items-center gap-1">
-                  <span className="inline-block w-5 h-0.5 rounded" style={{ backgroundColor: color }} />
+                  <span
+                    className="inline-block w-5 h-0.5 rounded"
+                    style={{ backgroundColor: color }}
+                  />
                   <span className="text-slate-600">{label}</span>
                 </span>
               ))}
@@ -314,8 +417,42 @@ export default function StockChartWindow({
               </span>
             </div>
 
-            {/* Chart canvas — takes remaining space */}
-            <div ref={chartContainerRef} className="flex-1 min-h-0 w-full" />
+            {/* Chart canvas with OHLC tooltip overlay */}
+            <div className="flex-1 min-h-0 relative">
+              <div ref={chartContainerRef} className="absolute inset-0" />
+
+              {/* OHLC crosshair tooltip */}
+              {tooltip && (
+                <div
+                  className="absolute pointer-events-none z-10 bg-slate-800 text-white rounded-lg px-3 py-2 shadow-xl text-xs leading-relaxed"
+                  style={{
+                    left: Math.min(
+                      tooltip.x + 14,
+                      (chartContainerRef.current?.clientWidth ?? 900) - 165
+                    ),
+                    top: Math.max(tooltip.y - 90, 6),
+                  }}
+                >
+                  <div className="font-semibold text-slate-200 mb-1">{tooltip.date}</div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                    <span className="text-slate-400">O</span>
+                    <span className="font-mono">{tooltip.open.toFixed(2)}</span>
+                    <span className="text-slate-400">H</span>
+                    <span className="font-mono text-red-400">{tooltip.high.toFixed(2)}</span>
+                    <span className="text-slate-400">L</span>
+                    <span className="font-mono text-green-400">{tooltip.low.toFixed(2)}</span>
+                    <span className="text-slate-400">C</span>
+                    <span
+                      className={`font-mono font-bold ${tooltip.close >= tooltip.open ? "text-red-400" : "text-green-400"}`}
+                    >
+                      {tooltip.close.toFixed(2)}
+                    </span>
+                    <span className="text-slate-400">Vol</span>
+                    <span className="font-mono">{fmtBig(tooltip.volume)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Fundamentals panel */}
             <div className="flex-shrink-0 border-t border-slate-100 px-4 py-2.5 bg-slate-50">
@@ -325,9 +462,12 @@ export default function StockChartWindow({
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-6 gap-y-1.5">
                 {fundRows.map(([label, value]) => (
-                  <div key={label as string}>
+                  <div key={label}>
                     <div className="text-[10px] text-slate-400">{label}</div>
-                    <div className="text-xs font-semibold text-slate-700 truncate" title={String(value)}>
+                    <div
+                      className="text-xs font-semibold text-slate-700 truncate"
+                      title={value}
+                    >
                       {value}
                     </div>
                   </div>
@@ -340,7 +480,7 @@ export default function StockChartWindow({
     </div>
   );
 
-  // ── Mobile: full-screen modal ───────────────────────────────────────────────
+  // ── Mobile: full-screen modal ──────────────────────────────────────────────
   if (isMobile) {
     return (
       <div className="fixed inset-0 flex flex-col" style={{ zIndex }}>
@@ -349,15 +489,12 @@ export default function StockChartWindow({
     );
   }
 
-  // ── Desktop: draggable + resizable floating window ──────────────────────────
+  // ── Desktop: draggable + resizable floating window ─────────────────────────
   const x = 60 + initialOffset * 30;
   const y = 60 + initialOffset * 30;
 
   return (
-    <div
-      className="fixed inset-0 pointer-events-none"
-      style={{ zIndex }}
-    >
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex }}>
       <Rnd
         default={{ x, y, width: 940, height: 580 }}
         minWidth={640}
