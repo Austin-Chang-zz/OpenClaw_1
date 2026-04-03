@@ -69,7 +69,6 @@ interface OHLCTooltip {
 interface Props {
   symbol: string;
   stockName: string | null;
-  market: string;
   onClose: () => void;
   zIndex?: number;
   onFocus?: () => void;
@@ -96,6 +95,17 @@ function fmtNum(v: number | null | undefined, dec = 2): string {
   return v.toFixed(dec);
 }
 
+function normalizeTime(t: Time | undefined): string {
+  if (!t) return "";
+  if (typeof t === "string") return t;
+  if (typeof t === "number") {
+    const d = new Date(t * 1000);
+    return d.toISOString().slice(0, 10);
+  }
+  const bd = t as { year: number; month: number; day: number };
+  return `${bd.year}-${String(bd.month).padStart(2, "0")}-${String(bd.day).padStart(2, "0")}`;
+}
+
 function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 768 : false
@@ -115,7 +125,6 @@ function useIsMobile(): boolean {
 export default function StockChartWindow({
   symbol,
   stockName,
-  market,
   onClose,
   zIndex = 50,
   onFocus,
@@ -264,7 +273,7 @@ export default function StockChartWindow({
           setTooltip(null);
           return;
         }
-        const timeKey = typeof param.time === "string" ? param.time : String(param.time);
+        const timeKey = normalizeTime(param.time);
         setTooltip({
           x: param.point.x,
           y: param.point.y,

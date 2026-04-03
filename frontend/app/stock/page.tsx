@@ -122,6 +122,7 @@ export default function StockPage() {
 
   const closeChartWindow = (symbol: string) => {
     setChartWindows(prev => prev.filter(w => w.symbol !== symbol));
+    setTopZSymbol(prev => (prev === symbol ? null : prev));
   };
 
   const fetchLatest = useCallback(async (quiet = false) => {
@@ -541,7 +542,6 @@ export default function StockPage() {
           key={w.symbol}
           symbol={w.symbol}
           stockName={w.stockName}
-          market={market}
           onClose={() => closeChartWindow(w.symbol)}
           onFocus={() => setTopZSymbol(w.symbol)}
           zIndex={topZSymbol === w.symbol ? 60 : 50}
