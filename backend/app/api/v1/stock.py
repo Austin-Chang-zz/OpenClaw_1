@@ -63,6 +63,8 @@ class LiveSignalItem(BaseModel):
     w26: Optional[float]
     w52: Optional[float]
     slope_w10: Optional[float]
+    slope_w26: Optional[float] = None
+    slope_w52: Optional[float] = None
     sar_signal: Optional[str]
     crossover_event: Optional[str]
     explanation: Optional[str]
@@ -157,6 +159,8 @@ def get_latest_signals(
                 "w26": s.w26,
                 "w52": s.w52,
                 "slope_w10": s.slope_w10,
+                "slope_w26": s.slope_w26,
+                "slope_w52": s.slope_w52,
                 "sar_signal": s.sar_signal,
                 "crossover_event": s.crossover_event,
                 "explanation": s.explanation,

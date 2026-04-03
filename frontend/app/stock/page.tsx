@@ -16,6 +16,8 @@ interface Signal {
   w26: number | null;
   w52: number | null;
   slope_w10: number | null;
+  slope_w26: number | null;
+  slope_w52: number | null;
   sar_signal: string | null;
   crossover_event: string | null;
   explanation: string | null;
@@ -39,24 +41,24 @@ interface PhaseLegendItem {
 // ── Phase helpers ─────────────────────────────────────────────────────────────
 
 const PHASE_COLORS: Record<string, string> = {
-  X1: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  X2: "bg-emerald-200 text-emerald-900 border-emerald-400",
-  A1: "bg-green-100 text-green-800 border-green-300",
-  A2: "bg-green-100 text-green-700 border-green-300",
-  A3: "bg-lime-100 text-lime-700 border-lime-300",
-  A4: "bg-lime-100 text-lime-600 border-lime-200",
-  A5: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  B1: "bg-amber-100 text-amber-700 border-amber-300",
-  B2: "bg-orange-100 text-orange-700 border-orange-300",
-  Y1: "bg-orange-200 text-orange-800 border-orange-400",
-  Y2: "bg-red-200 text-red-800 border-red-400",
-  C1: "bg-red-100 text-red-700 border-red-300",
-  C2: "bg-red-100 text-red-600 border-red-200",
-  C3: "bg-rose-100 text-rose-600 border-rose-200",
-  C4: "bg-rose-200 text-rose-700 border-rose-300",
-  C5: "bg-rose-200 text-rose-800 border-rose-400",
-  D1: "bg-purple-100 text-purple-700 border-purple-300",
-  D2: "bg-purple-200 text-purple-800 border-purple-400",
+  X1: "bg-red-100 text-red-800 border-red-300",
+  X2: "bg-red-200 text-red-900 border-red-400",
+  A1: "bg-red-100 text-red-700 border-red-300",
+  A2: "bg-red-50 text-red-700 border-red-200",
+  A3: "bg-rose-50 text-rose-700 border-rose-200",
+  A4: "bg-rose-50 text-rose-600 border-rose-200",
+  A5: "bg-orange-50 text-orange-600 border-orange-200",
+  B1: "bg-red-200 text-red-800 border-red-400",
+  B2: "bg-red-300 text-red-900 border-red-500",
+  Y1: "bg-amber-100 text-amber-800 border-amber-300",
+  Y2: "bg-amber-200 text-amber-900 border-amber-400",
+  C1: "bg-green-100 text-green-700 border-green-300",
+  C2: "bg-green-100 text-green-600 border-green-200",
+  C3: "bg-green-200 text-green-700 border-green-300",
+  C4: "bg-green-200 text-green-800 border-green-400",
+  C5: "bg-emerald-200 text-emerald-800 border-emerald-400",
+  D1: "bg-emerald-100 text-emerald-700 border-emerald-300",
+  D2: "bg-emerald-200 text-emerald-900 border-emerald-400",
   MIXED: "bg-gray-100 text-gray-600 border-gray-200",
   UNKNOWN: "bg-gray-50 text-gray-400 border-gray-200",
 };
@@ -173,7 +175,7 @@ export default function StockPage() {
     }
   };
 
-  const signals = report?.signals || [];
+  const signals = (report?.signals || []).filter(s => (s.slope_w10 ?? 0) > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -288,8 +290,8 @@ export default function StockPage() {
                       <span className="text-xs text-slate-500 w-5 text-right">{p.base_score}</span>
                     </div>
                     <div className="flex gap-1 mt-0.5">
-                      {p.is_entry && <span className="text-[10px] text-emerald-600 font-medium">🎯 entry</span>}
-                      {p.is_exit && <span className="text-[10px] text-red-600 font-medium">🚪 exit</span>}
+                      {p.is_entry && <span className="text-[10px] text-red-600 font-medium">🎯 entry</span>}
+                      {p.is_exit && <span className="text-[10px] text-green-600 font-medium">🚪 exit</span>}
                     </div>
                   </div>
                 </div>
@@ -357,10 +359,10 @@ export default function StockPage() {
                           <span className="font-mono font-bold text-slate-800">{s.symbol}</span>
                           <div className="flex gap-1 mt-0.5">
                             {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
-                              <span className="text-[10px] text-emerald-600 font-semibold">🎯 Entry</span>
+                              <span className="text-[10px] text-red-600 font-semibold">🎯 Entry</span>
                             )}
                             {s.phase_label && ["Y1","Y2","C1","C2"].includes(s.phase_label) && (
-                              <span className="text-[10px] text-red-600 font-semibold">🚪 Exit</span>
+                              <span className="text-[10px] text-green-600 font-semibold">🚪 Exit</span>
                             )}
                           </div>
                         </td>
@@ -389,9 +391,24 @@ export default function StockPage() {
                         </td>
                         <td className="px-4 py-3 text-right text-slate-700 font-mono text-xs">{fmt(s.close_price)}</td>
                         <td className="px-4 py-3 text-right text-slate-500 text-xs">{s.volume_amount_100m ? s.volume_amount_100m.toFixed(1) : "—"}</td>
-                        <td className="px-4 py-3 text-right text-slate-500 font-mono text-xs">{fmt(s.w10)}</td>
-                        <td className="px-4 py-3 text-right text-slate-500 font-mono text-xs">{fmt(s.w26)}</td>
-                        <td className="px-4 py-3 text-right text-slate-500 font-mono text-xs">{fmt(s.w52)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div className={`text-xs font-semibold ${(s.slope_w10 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                            {s.slope_w10 !== null ? `${s.slope_w10 > 0 ? "+" : ""}${s.slope_w10.toFixed(2)}%` : "—"}
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">{fmt(s.w10)}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className={`text-xs font-semibold ${(s.slope_w26 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                            {s.slope_w26 !== null ? `${s.slope_w26 > 0 ? "+" : ""}${s.slope_w26.toFixed(2)}%` : "—"}
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">{fmt(s.w26)}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className={`text-xs font-semibold ${(s.slope_w52 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                            {s.slope_w52 !== null ? `${s.slope_w52 > 0 ? "+" : ""}${s.slope_w52.toFixed(2)}%` : "—"}
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">{fmt(s.w52)}</div>
+                        </td>
                         <td className="px-4 py-3 text-center">{sarBadge(s.sar_signal)}</td>
                         <td className="px-4 py-3">
                           {s.crossover_event ? (
@@ -416,13 +433,15 @@ export default function StockPage() {
                               <p className="text-xs text-slate-600 leading-relaxed">{s.explanation || "No explanation available."}</p>
                             </div>
                             <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-500">
-                              {s.slope_w10 !== null && (
-                                <span>
-                                  W10 slope:{" "}
-                                  <span className={s.slope_w10 > 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
-                                    {s.slope_w10 > 0 ? "+" : ""}{s.slope_w10.toFixed(3)}%
+                              {[["W10", s.slope_w10], ["W26", s.slope_w26], ["W52", s.slope_w52]].map(([label, val]) =>
+                                val !== null ? (
+                                  <span key={label as string}>
+                                    {label} slope:{" "}
+                                    <span className={(val as number) > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+                                      {(val as number) > 0 ? "+" : ""}{(val as number).toFixed(3)}%
+                                    </span>
                                   </span>
-                                </span>
+                                ) : null
                               )}
                             </div>
                           </td>
@@ -448,10 +467,10 @@ export default function StockPage() {
                         )}
                         <div className="flex gap-1 mt-0.5">
                           {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
-                            <span className="text-[10px] text-emerald-600 font-semibold">🎯 Entry</span>
+                            <span className="text-[10px] text-red-600 font-semibold">🎯 Entry</span>
                           )}
                           {s.phase_label && ["Y1","Y2","C1","C2"].includes(s.phase_label) && (
-                            <span className="text-[10px] text-red-600 font-semibold">🚪 Exit</span>
+                            <span className="text-[10px] text-green-600 font-semibold">🚪 Exit</span>
                           )}
                         </div>
                       </div>
@@ -465,7 +484,13 @@ export default function StockPage() {
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-500">
                     <div><span className="text-slate-400">Close</span><div className="font-mono font-medium text-slate-700">{fmt(s.close_price)}</div></div>
-                    <div><span className="text-slate-400">W10</span><div className="font-mono">{fmt(s.w10)}</div></div>
+                    <div>
+                      <span className="text-slate-400">W10</span>
+                      <div className={`text-xs font-semibold ${(s.slope_w10 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
+                        {s.slope_w10 !== null ? `${s.slope_w10 > 0 ? "+" : ""}${s.slope_w10.toFixed(2)}%` : "—"}
+                      </div>
+                      <div className="font-mono text-slate-500">{fmt(s.w10)}</div>
+                    </div>
                     <div><span className="text-slate-400">SAR</span><div>{sarBadge(s.sar_signal)}</div></div>
                   </div>
                   {s.explanation && (
