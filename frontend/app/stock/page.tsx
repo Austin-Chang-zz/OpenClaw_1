@@ -1,144 +1,503 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 
-interface StockSignal {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Signal {
   symbol: string;
-  score: number;
-  signal_type?: string;
-  close_price?: number;
-  crossover_weekly?: string;
-  crossover_daily?: string;
-  pivot_detected?: string;
-  explanation?: string;
+  phase_label: string;
+  phase_score: number;
+  close_price: number | null;
+  volume_amount_100m: number | null;
+  w10: number | null;
+  w26: number | null;
+  w52: number | null;
+  slope_w10: number | null;
+  sar_signal: string | null;
+  crossover_event: string | null;
+  explanation: string | null;
 }
 
-interface StockReport {
+interface LatestReport {
   date: string | null;
   market: string;
-  signals: StockSignal[];
+  count: number;
+  signals: Signal[];
 }
+
+interface PhaseLegendItem {
+  phase: string;
+  base_score: number;
+  group: string;
+  is_entry: boolean;
+  is_exit: boolean;
+}
+
+// ── Phase helpers ─────────────────────────────────────────────────────────────
+
+const PHASE_COLORS: Record<string, string> = {
+  X1: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  X2: "bg-emerald-200 text-emerald-900 border-emerald-400",
+  A1: "bg-green-100 text-green-800 border-green-300",
+  A2: "bg-green-100 text-green-700 border-green-300",
+  A3: "bg-lime-100 text-lime-700 border-lime-300",
+  A4: "bg-lime-100 text-lime-600 border-lime-200",
+  A5: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  B1: "bg-amber-100 text-amber-700 border-amber-300",
+  B2: "bg-orange-100 text-orange-700 border-orange-300",
+  Y1: "bg-orange-200 text-orange-800 border-orange-400",
+  Y2: "bg-red-200 text-red-800 border-red-400",
+  C1: "bg-red-100 text-red-700 border-red-300",
+  C2: "bg-red-100 text-red-600 border-red-200",
+  C3: "bg-rose-100 text-rose-600 border-rose-200",
+  C4: "bg-rose-200 text-rose-700 border-rose-300",
+  C5: "bg-rose-200 text-rose-800 border-rose-400",
+  D1: "bg-purple-100 text-purple-700 border-purple-300",
+  D2: "bg-purple-200 text-purple-800 border-purple-400",
+  MIXED: "bg-gray-100 text-gray-600 border-gray-200",
+  UNKNOWN: "bg-gray-50 text-gray-400 border-gray-200",
+};
+
+const PHASE_EMOJI: Record<string, string> = {
+  X1: "🟢", X2: "💚",
+  A1: "📈", A2: "📈", A3: "📊", A4: "📊", A5: "📊",
+  B1: "⚠️", B2: "🔴",
+  Y1: "🔻", Y2: "⛔",
+  C1: "📉", C2: "📉", C3: "📉", C4: "📉", C5: "📉",
+  D1: "💀", D2: "💀",
+  MIXED: "❓", UNKNOWN: "❔",
+};
+
+const PHASE_GROUP_LABEL: Record<string, string> = {
+  BULLISH: "Bullish", PEAK: "Peak", TOP: "Top", BEARISH: "Bearish", BOTTOM: "Bottom", MIXED: "Mixed",
+};
+
+const getScoreBarColor = (score: number) => {
+  if (score >= 80) return "bg-emerald-500";
+  if (score >= 60) return "bg-green-400";
+  if (score >= 40) return "bg-yellow-400";
+  if (score >= 25) return "bg-orange-400";
+  return "bg-red-400";
+};
+
+const fmt = (v: number | null, dec = 2) =>
+  v !== null && v !== undefined ? v.toFixed(dec) : "—";
+
+const sarBadge = (sar: string | null) => {
+  if (sar === "low") return <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">🔵 low</span>;
+  if (sar === "high") return <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">🔴 high</span>;
+  return <span className="text-xs text-gray-400">—</span>;
+};
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function StockPage() {
   const [market, setMarket] = useState("TW");
-  const [report, setReport] = useState<StockReport | null>(null);
+  const [report, setReport] = useState<LatestReport | null>(null);
+  const [legend, setLegend] = useState<PhaseLegendItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runStatus, setRunStatus] = useState<string | null>(null);
+  const [showLegend, setShowLegend] = useState(false);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchSignals = () => {
-    setLoading(true);
-    fetch(`/api/v1/stock/signals/latest?market=${market}`)
-      .then((r) => r.json())
-      .then((data) => { setReport(data); setLoading(false); })
-      .catch(() => setLoading(false));
+  const fetchLatest = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/stock/signals/latest?market=${market}`);
+      const data = await res.json();
+      setReport(data);
+    } catch (_) {}
+    if (!quiet) setLoading(false);
+  }, [market]);
+
+  const fetchLegend = async () => {
+    try {
+      const res = await fetch("/api/v1/stock/phases/legend");
+      const data = await res.json();
+      setLegend(data.phases || []);
+    } catch (_) {}
   };
 
-  useEffect(() => { fetchSignals(); }, [market]);
+  useEffect(() => {
+    fetchLatest();
+    fetchLegend();
+  }, [market]);
 
-  const triggerRefresh = async () => {
-    setRefreshing(true);
-    await fetch(`/api/v1/stock/refresh?market=${market}`, { method: "POST" });
-    setTimeout(() => { setRefreshing(false); fetchSignals(); }, 1000);
+  // Poll for results after async trigger
+  const startPolling = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      const res = await fetch(`/api/v1/stock/signals/latest?market=${market}`);
+      const data = await res.json();
+      if (data.date && data.count > 0) {
+        setReport(data);
+        setRunning(false);
+        setRunStatus(`Analysis complete — ${data.count} signals as of ${data.date}`);
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+    }, 15000);
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 7) return "text-green-600 font-bold";
-    if (score >= 4) return "text-yellow-600 font-semibold";
-    return "text-gray-600";
+  const runAnalysis = async (mode: "sync" | "async") => {
+    setRunning(true);
+    setRunStatus(
+      mode === "sync"
+        ? "Running full analysis… this takes 3–5 minutes. Please wait."
+        : "Analysis triggered in background — results will auto-refresh."
+    );
+    try {
+      if (mode === "sync") {
+        const res = await fetch(
+          `/api/v1/stock/run-analysis?market=${market}&top_n=10&save_to_db=true`,
+          { method: "POST" }
+        );
+        const data = await res.json();
+        setRunStatus(data.message || "Done.");
+        await fetchLatest(true);
+        setRunning(false);
+      } else {
+        await fetch(
+          `/api/v1/stock/run-analysis/async?market=${market}`,
+          { method: "POST" }
+        );
+        startPolling();
+      }
+    } catch (e) {
+      setRunStatus("Error triggering analysis. Check backend logs.");
+      setRunning(false);
+    }
   };
+
+  const signals = report?.signals || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-900 text-white px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      {/* Header */}
+      <header className="bg-slate-900 text-white px-6 py-4 shadow-lg">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-blue-300 hover:text-white text-sm">← Home</Link>
-            <span className="text-white font-semibold text-lg">📈 Stock Engine (102.5 Theory)</span>
+            <Link href="/" className="text-slate-400 hover:text-white text-sm transition-colors">← Home</Link>
+            <span className="text-white font-bold text-lg">📈 ST125 Stock Engine</span>
+            <span className="text-slate-400 text-xs hidden sm:inline">102.5 / Weekly MA Crossover Theory</span>
           </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={market}
-              onChange={(e) => setMarket(e.target.value)}
-              className="bg-blue-800 text-white border border-blue-600 rounded-lg px-3 py-1.5 text-sm"
-            >
-              <option value="TW">TW Market</option>
-              <option value="US">US Market</option>
-            </select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex rounded-lg overflow-hidden border border-slate-600">
+              {["TW", "US"].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMarket(m)}
+                  className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                    market === m
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  {m === "TW" ? "🇹🇼 TW" : "🇺🇸 US"}
+                </button>
+              ))}
+            </div>
             <button
-              onClick={triggerRefresh}
-              disabled={refreshing}
-              className="bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-sm font-medium"
+              onClick={() => runAnalysis("async")}
+              disabled={running}
+              className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
-              {refreshing ? "Queuing..." : "Refresh Data"}
+              {running ? "⏳ Running…" : "▶ Run Analysis"}
+            </button>
+            <button
+              onClick={() => setShowLegend(!showLegend)}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            >
+              {showLegend ? "▲ Hide Legend" : "▼ Phase Legend"}
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <h3 className="font-semibold text-blue-800 mb-2">102.5 Theory</h3>
-          <p className="text-sm text-blue-700">
-            Weekly: 2/10/26 MA crossover/under + pivot points. Daily: 2/10/50/132 MA crossover/under + pivot points.
-            Signals are ranked by combined score and human review is required before any trading decisions.
-          </p>
-          <p className="text-xs text-blue-500 mt-2 font-medium">⚠️ Not financial advice. For research purposes only.</p>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+
+        {/* Status bar */}
+        {runStatus && (
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${
+            running
+              ? "bg-blue-50 border-blue-200 text-blue-800"
+              : runStatus.toLowerCase().includes("error")
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+          }`}>
+            {running && (
+              <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+            )}
+            <span>{runStatus}</span>
+            {running && (
+              <span className="ml-auto text-xs text-blue-500">Auto-refreshing every 15 s</span>
+            )}
+          </div>
+        )}
+
+        {/* Theory card */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">📐</div>
+            <div>
+              <h3 className="font-semibold text-slate-800 mb-1">ST125 / 102.5 Theory</h3>
+              <p className="text-sm text-slate-600">
+                Uses weekly SMA crossovers (W2/W10/W26/<span className="font-medium text-slate-700">W52</span>) + slope direction +
+                Parabolic SAR to classify stocks into 14 sub-phases.
+                Higher score = better entry opportunity.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                <span className="bg-slate-100 rounded px-2 py-0.5">W52=D260 (1yr)</span>
+                <span className="bg-slate-100 rounded px-2 py-0.5">W26=D132 (6mo)</span>
+                <span className="bg-slate-100 rounded px-2 py-0.5">W10=D50 (10wk)</span>
+                <span className="bg-slate-100 rounded px-2 py-0.5">W2=D10 (2wk)</span>
+                <span className="bg-blue-50 text-blue-700 rounded px-2 py-0.5">🔵 SAR low = support</span>
+                <span className="bg-red-50 text-red-700 rounded px-2 py-0.5">🔴 SAR high = pressure</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20 text-gray-400">Loading signals...</div>
-        ) : report?.date ? (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-gray-700">Latest Signals – {report.date} ({report.market})</h2>
-              <span className="text-sm text-gray-500">{report.signals.length} signals</span>
+        {/* Phase Legend (collapsible) */}
+        {showLegend && legend.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-semibold text-slate-700 text-sm">Phase Scoring Legend</h3>
             </div>
-            <div className="bg-white rounded-xl shadow overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0 divide-x divide-y divide-slate-100">
+              {legend.filter(p => p.phase !== "MIXED" && p.phase !== "UNKNOWN").map((p) => (
+                <div key={p.phase} className="px-3 py-2.5 flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[p.phase] || "bg-gray-100 text-gray-600"}`}>
+                    {PHASE_EMOJI[p.phase]} {p.phase}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${getScoreBarColor(p.base_score)}`}
+                          style={{ width: `${p.base_score}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-slate-500 w-5 text-right">{p.base_score}</span>
+                    </div>
+                    <div className="flex gap-1 mt-0.5">
+                      {p.is_entry && <span className="text-[10px] text-emerald-600 font-medium">🎯 entry</span>}
+                      {p.is_exit && <span className="text-[10px] text-red-600 font-medium">🚪 exit</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Signals table */}
+        {loading ? (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-center py-24 text-slate-400">
+            <svg className="animate-spin h-6 w-6 mr-3 text-blue-400" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Loading signals…
+          </div>
+        ) : signals.length > 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-slate-800 text-sm">
+                  {market === "TW" ? "🇹🇼 Taiwan" : "🇺🇸 US"} — Top Signals
+                </h2>
+                {report?.date && (
+                  <p className="text-xs text-slate-500 mt-0.5">Signal date: {report.date} · {signals.length} results</p>
+                )}
+              </div>
+              <button
+                onClick={() => fetchLatest()}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                ↻ Refresh
+              </button>
+            </div>
+
+            {/* Desktop table */}
+            <div className="overflow-x-auto hidden md:block">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100">
                   <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Symbol</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Score</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Signal</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Price</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Weekly XO</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Daily XO</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Pivot</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Symbol</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Phase</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">Score</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Close</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Vol 100M</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W10</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W26</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W52</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">SAR</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Crossover</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {report.signals.map((s) => (
-                    <tr key={s.symbol} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-3 font-mono font-bold text-sm text-gray-800">{s.symbol}</td>
-                      <td className={`px-4 py-3 text-sm ${getScoreColor(s.score)}`}>{s.score.toFixed(1)}</td>
-                      <td className="px-4 py-3">
-                        {s.signal_type && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">{s.signal_type}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{s.close_price?.toFixed(2) || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{s.crossover_weekly || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{s.crossover_daily || "-"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{s.pivot_detected || "-"}</td>
-                    </tr>
+                <tbody className="divide-y divide-slate-50">
+                  {signals.map((s, i) => (
+                    <>
+                      <tr
+                        key={s.symbol}
+                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        onClick={() => setExpandedRow(expandedRow === s.symbol ? null : s.symbol)}
+                      >
+                        <td className="px-4 py-3 text-xs text-slate-400 font-medium">{i + 1}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono font-bold text-slate-800">{s.symbol}</span>
+                          <div className="flex gap-1 mt-0.5">
+                            {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
+                              <span className="text-[10px] text-emerald-600 font-semibold">🎯 Entry</span>
+                            )}
+                            {s.phase_label && ["Y1","Y2","C1","C2"].includes(s.phase_label) && (
+                              <span className="text-[10px] text-red-600 font-semibold">🚪 Exit</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[s.phase_label] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                            {PHASE_EMOJI[s.phase_label] || "❔"} {s.phase_label || "—"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden w-14">
+                              <div
+                                className={`h-full rounded-full transition-all ${getScoreBarColor(s.phase_score)}`}
+                                style={{ width: `${s.phase_score}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-semibold text-slate-700 w-8 text-right">
+                              {s.phase_score?.toFixed(1)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-700 font-mono text-xs">{fmt(s.close_price)}</td>
+                        <td className="px-4 py-3 text-right text-slate-500 text-xs">{s.volume_amount_100m ? s.volume_amount_100m.toFixed(1) : "—"}</td>
+                        <td className="px-4 py-3 text-right text-slate-500 font-mono text-xs">{fmt(s.w10)}</td>
+                        <td className="px-4 py-3 text-right text-slate-500 font-mono text-xs">{fmt(s.w26)}</td>
+                        <td className="px-4 py-3 text-right text-slate-500 font-mono text-xs">{fmt(s.w52)}</td>
+                        <td className="px-4 py-3 text-center">{sarBadge(s.sar_signal)}</td>
+                        <td className="px-4 py-3">
+                          {s.crossover_event ? (
+                            <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-1.5 py-0.5 font-mono">
+                              {s.crossover_event.replace(/_/g, " ")}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expandedRow === s.symbol && (
+                        <tr key={`${s.symbol}-detail`} className="bg-slate-50">
+                          <td colSpan={11} className="px-6 py-3">
+                            <div className="flex items-start gap-2">
+                              <span className="text-slate-400 text-xs mt-0.5">📝</span>
+                              <p className="text-xs text-slate-600 leading-relaxed">{s.explanation || "No explanation available."}</p>
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-500">
+                              {s.slope_w10 !== null && (
+                                <span>
+                                  W10 slope:{" "}
+                                  <span className={s.slope_w10 > 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                                    {s.slope_w10 > 0 ? "+" : ""}{s.slope_w10.toFixed(3)}%
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
             </div>
-          </>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {signals.map((s, i) => (
+                <div key={s.symbol} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400 w-4">{i + 1}</span>
+                      <div>
+                        <span className="font-mono font-bold text-slate-800 text-sm">{s.symbol}</span>
+                        <div className="flex gap-1 mt-0.5">
+                          {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
+                            <span className="text-[10px] text-emerald-600 font-semibold">🎯 Entry</span>
+                          )}
+                          {s.phase_label && ["Y1","Y2","C1","C2"].includes(s.phase_label) && (
+                            <span className="text-[10px] text-red-600 font-semibold">🚪 Exit</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[s.phase_label] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                        {PHASE_EMOJI[s.phase_label] || "❔"} {s.phase_label || "—"}
+                      </span>
+                      <span className="text-sm font-bold text-slate-700">{s.phase_score?.toFixed(0)}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-500">
+                    <div><span className="text-slate-400">Close</span><div className="font-mono font-medium text-slate-700">{fmt(s.close_price)}</div></div>
+                    <div><span className="text-slate-400">W10</span><div className="font-mono">{fmt(s.w10)}</div></div>
+                    <div><span className="text-slate-400">SAR</span><div>{sarBadge(s.sar_signal)}</div></div>
+                  </div>
+                  {s.explanation && (
+                    <p className="mt-2 text-xs text-slate-500 leading-relaxed line-clamp-2">{s.explanation}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
-          <div className="text-center py-20 text-gray-400">
+          /* Empty state */
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-20 text-slate-400 text-center px-6">
             <div className="text-5xl mb-4">📊</div>
-            <p className="mb-4">No stock signals yet.</p>
-            <button
-              onClick={triggerRefresh}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium"
-            >
-              Queue Data Refresh
-            </button>
+            <p className="font-medium text-slate-600 mb-1">No signals yet for {market === "TW" ? "Taiwan" : "US"} market</p>
+            <p className="text-sm mb-6">
+              Click <strong>Run Analysis</strong> to fetch market data, compute ST125 phases,
+              and rank the top opportunities.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => runAnalysis("async")}
+                disabled={running}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+              >
+                {running ? "⏳ Running…" : "▶ Run Analysis (background)"}
+              </button>
+              <button
+                onClick={() => runAnalysis("sync")}
+                disabled={running}
+                className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 px-6 py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                Run (wait for result)
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-3">
+              Full market run takes 3–5 minutes · Results auto-refresh every 15 s
+            </p>
           </div>
         )}
+
+        {/* Disclaimer */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          ⚠️ <strong>Disclaimer:</strong> ST125 signals are for research and informational purposes only.
+          They do not constitute financial advice. All investments carry risk.
+          Please conduct your own due diligence before making any investment decisions.
+        </div>
       </main>
     </div>
   );
