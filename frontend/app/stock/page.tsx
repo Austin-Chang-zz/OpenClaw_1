@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -347,9 +347,8 @@ export default function StockPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {signals.map((s, i) => (
-                    <>
+                    <React.Fragment key={s.symbol}>
                       <tr
-                        key={s.symbol}
                         className="hover:bg-slate-50 cursor-pointer transition-colors"
                         onClick={() => setExpandedRow(expandedRow === s.symbol ? null : s.symbol)}
                       >
@@ -407,6 +406,11 @@ export default function StockPage() {
                       {expandedRow === s.symbol && (
                         <tr key={`${s.symbol}-detail`} className="bg-slate-50">
                           <td colSpan={12} className="px-6 py-3">
+                            {s.stock_name && (
+                              <div className="mb-1.5 text-xs text-slate-500 font-medium">
+                                {s.symbol} · <span className="text-slate-700">{s.stock_name}</span>
+                              </div>
+                            )}
                             <div className="flex items-start gap-2">
                               <span className="text-slate-400 text-xs mt-0.5">📝</span>
                               <p className="text-xs text-slate-600 leading-relaxed">{s.explanation || "No explanation available."}</p>
@@ -424,7 +428,7 @@ export default function StockPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>

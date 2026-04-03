@@ -238,10 +238,32 @@ US_NAMES: Dict[str, str] = {
 
 
 def get_stock_name(symbol: str, market: str) -> str:
-    """Return the display name for a stock symbol."""
+    """
+    Return the display name for a stock symbol.
+    Priority: static lookup dict → yfinance shortName → symbol fallback.
+    Static dict covers all watchlist stocks; yfinance is only called for unknown symbols.
+    """
     if market == "TW":
-        return TW_NAMES.get(symbol, symbol.replace(".TW", ""))
-    return US_NAMES.get(symbol, symbol)
+        if symbol in TW_NAMES:
+            return TW_NAMES[symbol]
+    else:
+        if symbol in US_NAMES:
+            return US_NAMES[symbol]
+
+    try:
+        import yfinance as yf
+        info = yf.Ticker(symbol).fast_info
+        name = getattr(info, "display_name", None) or getattr(info, "shortName", None)
+        if name:
+            return name
+        full_info = yf.Ticker(symbol).info
+        name = full_info.get("shortName") or full_info.get("longName")
+        if name:
+            return name
+    except Exception:
+        pass
+
+    return symbol.replace(".TW", "") if market == "TW" else symbol
 
 
 # ── Ranker ────────────────────────────────────────────────────────────────────
