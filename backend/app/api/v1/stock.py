@@ -247,7 +247,6 @@ def get_live_signals(
 @router.get("/report/latest", response_model=Dict[str, Any])
 def get_latest_report(market: str = Query("TW")):
     """Return the contents of the latest saved markdown report."""
-    from pathlib import Path
     from ...services.stock_engine.report_generator import REPORT_DIR
     report_dir = REPORT_DIR
     pattern = f"st125_{market}_*.md"
