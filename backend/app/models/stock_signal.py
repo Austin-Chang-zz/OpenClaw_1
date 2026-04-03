@@ -54,3 +54,4 @@ class StockSignal(Base):
     crossover_weekly = Column(String(20))
     crossover_daily = Column(String(20))
     pivot_detected = Column(String(10))
+    stock_name = Column(String(200))

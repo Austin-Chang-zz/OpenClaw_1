@@ -7,6 +7,7 @@ import Link from "next/link";
 
 interface Signal {
   symbol: string;
+  stock_name: string | null;
   phase_label: string;
   phase_score: number;
   close_price: number | null;
@@ -332,6 +333,7 @@ export default function StockPage() {
                   <tr>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Symbol</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Phase</th>
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">Score</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Close</th>
@@ -362,6 +364,11 @@ export default function StockPage() {
                               <span className="text-[10px] text-red-600 font-semibold">🚪 Exit</span>
                             )}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 max-w-[130px]">
+                          <span className="text-sm text-slate-700 block truncate" title={s.stock_name || ""}>
+                            {s.stock_name || "—"}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[s.phase_label] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
@@ -399,7 +406,7 @@ export default function StockPage() {
                       </tr>
                       {expandedRow === s.symbol && (
                         <tr key={`${s.symbol}-detail`} className="bg-slate-50">
-                          <td colSpan={11} className="px-6 py-3">
+                          <td colSpan={12} className="px-6 py-3">
                             <div className="flex items-start gap-2">
                               <span className="text-slate-400 text-xs mt-0.5">📝</span>
                               <p className="text-xs text-slate-600 leading-relaxed">{s.explanation || "No explanation available."}</p>
@@ -432,6 +439,9 @@ export default function StockPage() {
                       <span className="text-xs text-slate-400 w-4">{i + 1}</span>
                       <div>
                         <span className="font-mono font-bold text-slate-800 text-sm">{s.symbol}</span>
+                        {s.stock_name && (
+                          <span className="ml-1.5 text-xs text-slate-500">{s.stock_name}</span>
+                        )}
                         <div className="flex gap-1 mt-0.5">
                           {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
                             <span className="text-[10px] text-emerald-600 font-semibold">🎯 Entry</span>

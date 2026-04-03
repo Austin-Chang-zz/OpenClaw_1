@@ -24,6 +24,7 @@ class StockSignalResponse(BaseModel):
     symbol: str
     market: str
     signal_date: date
+    stock_name: Optional[str] = None
     phase_label: Optional[str] = None
     phase_score: Optional[float] = None
     score: Optional[float] = None
@@ -53,6 +54,7 @@ class AnalysisTriggerResponse(BaseModel):
 class LiveSignalItem(BaseModel):
     symbol: str
     market: str
+    stock_name: Optional[str] = None
     phase_label: str
     phase_score: float
     close_price: Optional[float]
@@ -146,6 +148,7 @@ def get_latest_signals(
         "signals": [
             {
                 "symbol": s.symbol,
+                "stock_name": s.stock_name,
                 "phase_label": s.phase_label,
                 "phase_score": s.phase_score,
                 "close_price": s.close_price,
