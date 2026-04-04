@@ -251,7 +251,7 @@ export default function StockChartWindow({
           position: p.signal === "low" ? "belowBar" : "aboveBar",
           color: p.signal === "low" ? "#ef4444" : "#3b82f6",
           shape: "circle" as const,
-          size: 0.3,
+          size: 0.1,
           text: "",
         }));
       if (sarMarkers.length > 0) {
