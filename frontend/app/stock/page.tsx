@@ -41,6 +41,11 @@ interface PhaseLegendItem {
   is_exit: boolean;
 }
 
+// ── US Pinned stocks (Big 7 + TSM) ────────────────────────────────────────────
+
+const BIG7_TSM = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "TSM"] as const;
+const BIG7_TSM_SET = new Set<string>(BIG7_TSM);
+
 // ── Phase helpers ─────────────────────────────────────────────────────────────
 
 const PHASE_COLORS: Record<string, string> = {
@@ -193,7 +198,14 @@ export default function StockPage() {
     }
   };
 
-  const signals = (report?.signals || []).filter(s => (s.slope_w10 ?? 0) > 0);
+  const allSignals = report?.signals ?? [];
+  const pinnedUS = market === "US"
+    ? BIG7_TSM.map(sym => allSignals.find(s => s.symbol === sym)).filter(Boolean) as Signal[]
+    : [];
+  const rankedPool = allSignals.filter(
+    s => (market !== "US" || !BIG7_TSM_SET.has(s.symbol)) && (s.slope_w10 ?? 0) > 0
+  ).slice(0, 10);
+  const signals = market === "US" ? [...pinnedUS, ...rankedPool] : rankedPool;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -333,9 +345,15 @@ export default function StockPage() {
               <div>
                 <h2 className="font-semibold text-slate-800 text-sm">
                   {market === "TW" ? "🇹🇼 Taiwan" : "🇺🇸 US"} — Top Signals
+                  {market === "US" && <span className="ml-2 text-[11px] text-amber-600 font-normal">★ Big 7 + TSM always shown</span>}
                 </h2>
                 {report?.date && (
-                  <p className="text-xs text-slate-500 mt-0.5">Signal date: {report.date} · {signals.length} results</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Signal date: {report.date} ·{" "}
+                    {market === "US"
+                      ? `${pinnedUS.length} pinned + ${rankedPool.length} ranked`
+                      : `${signals.length} results`}
+                  </p>
                 )}
               </div>
               <button
@@ -368,6 +386,15 @@ export default function StockPage() {
                 <tbody className="divide-y divide-slate-50">
                   {signals.map((s, i) => (
                     <React.Fragment key={s.symbol}>
+                      {market === "US" && i === pinnedUS.length && pinnedUS.length > 0 && rankedPool.length > 0 && (
+                        <tr key="divider-ranked">
+                          <td colSpan={12} className="px-4 py-1.5 bg-slate-100 border-y border-slate-200">
+                            <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
+                              ↓ Top Signals (slope filter applied)
+                            </span>
+                          </td>
+                        </tr>
+                      )}
                       <tr
                         className="hover:bg-slate-50 cursor-pointer transition-colors"
                         onClick={() => openChartWindow(s.symbol, s.stock_name)}
@@ -375,7 +402,12 @@ export default function StockPage() {
                       >
                         <td className="px-4 py-3 text-xs text-slate-400 font-medium">{i + 1}</td>
                         <td className="px-4 py-3">
-                          <span className="font-mono font-bold text-slate-800">{s.symbol}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-slate-800">{s.symbol}</span>
+                            {market === "US" && BIG7_TSM_SET.has(s.symbol) && (
+                              <span className="text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded px-1 py-0.5">★</span>
+                            )}
+                          </div>
                           <div className="flex gap-1 mt-0.5">
                             {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
                               <span className="text-[10px] text-red-600 font-semibold">🎯 Entry</span>
@@ -459,8 +491,11 @@ export default function StockPage() {
                       <span className="text-xs text-slate-400 w-4">{i + 1}</span>
                       <div>
                         <span className="font-mono font-bold text-slate-800 text-sm">{s.symbol}</span>
+                        {market === "US" && BIG7_TSM_SET.has(s.symbol) && (
+                          <span className="text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded px-1 py-0.5">★</span>
+                        )}
                         {s.stock_name && (
-                          <span className="ml-1.5 text-xs text-slate-500">{s.stock_name}</span>
+                          <span className="ml-1 text-xs text-slate-500">{s.stock_name}</span>
                         )}
                         <div className="flex gap-1 mt-0.5">
                           {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (

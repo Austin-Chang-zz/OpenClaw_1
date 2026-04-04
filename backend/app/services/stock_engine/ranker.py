@@ -1,7 +1,8 @@
 """
 J6.4 – Stock Ranker
 Runs the full analysis pipeline for a watchlist and returns ranked results.
-Top 10 TW + Top 10 US ranked by phase_score descending.
+TW: Top 10 ranked by phase_score.
+US: Big 7 + TSM always shown first (regardless of phase), then top 10 from rest.
 """
 
 import logging
@@ -124,6 +125,10 @@ TW_NAMES: Dict[str, str] = {
     "2498.TW": "宏達電",
     "3023.TW": "信邦",
 }
+
+# The 7 largest US AI/tech stocks + TSM — always shown first in US results.
+BIG7_TSM: List[str] = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "TSM"]
+BIG7_TSM_SET: set = set(BIG7_TSM)
 
 US_NAMES: Dict[str, str] = {
     "AAPL": "Apple Inc.",
@@ -340,22 +345,28 @@ class StockRanker:
         self, market: str, top_n: int = 10, max_symbols: int = 100
     ) -> List[Dict[str, Any]]:
         """
-        Run analysis for all watchlist symbols in a market and return top N by score.
+        Run analysis for all watchlist symbols in a market and return ranked results.
+
+        TW: top N by phase_score.
+        US: Big 7 + TSM pinned first (regardless of phase), then top N from the rest.
 
         Parameters
         ----------
         market      : "TW" or "US"
-        top_n       : number of top results to return
+        top_n       : number of top results from the non-pinned pool (US: pinned 8 + top_n)
         max_symbols : cap on watchlist size (for speed)
         """
         if market == "TW":
             watchlist = self.fetcher.get_tw_watchlist(top_n=max_symbols)
         else:
-            watchlist = self.fetcher.get_us_watchlist(top_n=max_symbols)
+            # Ensure all Big 7 + TSM are in the watchlist
+            base = self.fetcher.get_us_watchlist(top_n=max_symbols)
+            extras = [s for s in BIG7_TSM if s not in base]
+            watchlist = extras + base
 
         logger.info(f"Analysing {len(watchlist)} {market} symbols …")
 
-        results = []
+        results: List[Dict[str, Any]] = []
         for sym in watchlist:
             signal = self.analyse_symbol(sym, market)
             if signal:
@@ -377,8 +388,22 @@ class StockRanker:
             )
             r["score"] = r["phase_score"]
 
-        results.sort(key=lambda x: x["phase_score"], reverse=True)
-        return results[:top_n]
+        if market == "TW":
+            results.sort(key=lambda x: x["phase_score"], reverse=True)
+            return results[:top_n]
+
+        # US: pinned Big 7 + TSM first (fixed order), then top_n from the rest
+        results_map: Dict[str, Dict[str, Any]] = {r["symbol"]: r for r in results}
+
+        pinned = [results_map[sym] for sym in BIG7_TSM if sym in results_map]
+
+        rest = sorted(
+            [r for sym, r in results_map.items() if sym not in BIG7_TSM_SET],
+            key=lambda x: x["phase_score"],
+            reverse=True,
+        )[:top_n]
+
+        return pinned + rest
 
 
 def _safe_float(row, key: str) -> Optional[float]:

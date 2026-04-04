@@ -131,46 +131,61 @@ def get_latest_signals(
     market: str = Query("TW", description="TW or US"),
     db: Session = Depends(get_db),
 ):
-    """Return the most recent day's signals for a market."""
+    """
+    Return the most recent day's signals for a market.
+    US: Big 7 + TSM are always returned first (in fixed order), then up to 10 ranked signals.
+    TW: Top 10 by phase_score.
+    """
+    from ...services.stock_engine.ranker import BIG7_TSM, BIG7_TSM_SET
+
     latest_date = (
         db.query(func.max(StockSignal.signal_date))
         .filter(StockSignal.market == market)
         .scalar()
     )
     if not latest_date:
-        return {"date": None, "market": market, "signals": []}
+        return {"date": None, "market": market, "count": 0, "signals": []}
 
-    signals = (
+    all_rows = (
         db.query(StockSignal)
         .filter(StockSignal.market == market, StockSignal.signal_date == latest_date)
         .order_by(StockSignal.phase_score.desc())
-        .limit(20)
+        .limit(30)
         .all()
     )
+
+    if market == "US":
+        pinned_map = {s.symbol: s for s in all_rows if s.symbol in BIG7_TSM_SET}
+        pinned = [pinned_map[sym] for sym in BIG7_TSM if sym in pinned_map]
+        ranked = [s for s in all_rows if s.symbol not in BIG7_TSM_SET][:10]
+        ordered = pinned + ranked
+    else:
+        ordered = all_rows[:10]
+
+    def _row(s: StockSignal) -> Dict[str, Any]:
+        return {
+            "symbol": s.symbol,
+            "stock_name": s.stock_name,
+            "phase_label": s.phase_label,
+            "phase_score": s.phase_score,
+            "close_price": s.close_price,
+            "volume_amount_100m": s.volume_amount_100m,
+            "w10": s.w10,
+            "w26": s.w26,
+            "w52": s.w52,
+            "slope_w10": s.slope_w10,
+            "slope_w26": s.slope_w26,
+            "slope_w52": s.slope_w52,
+            "sar_signal": s.sar_signal,
+            "crossover_event": s.crossover_event,
+            "explanation": s.explanation,
+        }
+
     return {
         "date": str(latest_date),
         "market": market,
-        "count": len(signals),
-        "signals": [
-            {
-                "symbol": s.symbol,
-                "stock_name": s.stock_name,
-                "phase_label": s.phase_label,
-                "phase_score": s.phase_score,
-                "close_price": s.close_price,
-                "volume_amount_100m": s.volume_amount_100m,
-                "w10": s.w10,
-                "w26": s.w26,
-                "w52": s.w52,
-                "slope_w10": s.slope_w10,
-                "slope_w26": s.slope_w26,
-                "slope_w52": s.slope_w52,
-                "sar_signal": s.sar_signal,
-                "crossover_event": s.crossover_event,
-                "explanation": s.explanation,
-            }
-            for s in signals
-        ],
+        "count": len(ordered),
+        "signals": [_row(s) for s in ordered],
     }
 
 
