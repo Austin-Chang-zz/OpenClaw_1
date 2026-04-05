@@ -170,6 +170,7 @@ def get_latest_signals(
             "phase_score": s.phase_score,
             "close_price": s.close_price,
             "volume_amount_100m": s.volume_amount_100m,
+            "eps": s.eps,
             "w10": s.w10,
             "w26": s.w26,
             "w52": s.w52,

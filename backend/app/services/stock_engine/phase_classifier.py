@@ -1,14 +1,16 @@
 """
 J6.3 – ST125 Phase Classifier
-Rules sourced verbatim from ST125_2.pdf "Permutations & Combinations (Weekly)".
+Extended to 6 phases × multiple sub-phases per ST125_phase.md (2026).
 
-14 sub-phases:
-  X1, X2          — Pre-Bullish (Correction Bottom)
-  A1, A2, A3, A4, A5 — Bullish Transition / Rising
-  B1, B2          — Bull Peak / Overheating
-  Y1, Y2          — Pre-Bearish (Correction Top)
-  C1, C2, C3, C4, C5 — Bearish Transition / Falling
-  D1, D2          — Bear Bottom
+28 sub-phases:
+  X1..X5          — Phase X: Correction (Bottoming / Start of Uptrend)
+  A1..A5          — Phase A: Adaptation (Main Uptrend Start)
+  B1..B4          — Phase B: Overheating (Bull Peak / Exhaustion)
+  Y1..Y5          — Phase Y: Correction (Top / Start of Downtrend)
+  C1..C5          — Phase C: Adaptation (Main Downtrend Start)
+  D1..D4          — Phase D: Overheating (Bear Bottom / Panic)
+
+Note: X5 conditions = A3 (kept as A3), Y5 conditions = C3 (kept as C3).
 
 Inputs required (weekly bar):
   W2, W10, W26, W52       — MA values
@@ -192,7 +194,7 @@ class PhaseClassifier:
                 "SAR support dots — trend reversal confirmed, strong entry"
             )
 
-        # A2: 52>10>26, slope 52 negative, SAR low dots
+        # A2: 52>10>26, slope 52 negative, SAR low dots (SAR-confirmed, strongest)
         if (w52 > w10 > w26
                 and neg(sl_w52)
                 and sar == "low"):
@@ -201,7 +203,25 @@ class PhaseClassifier:
                 "but trend line above half-year — good entry with SAR support"
             )
 
-        # A3: 10>52>26, slope 52 negative
+        # X3: 52>10>26, slopes 52 & 26 negative, W2 above W10 (no SAR required)
+        if (w52 > w10 > w26
+                and neg(sl_w52) and neg(sl_w26)
+                and w2 > w10):
+            return "X3", (
+                "Correction-phase absorption: W52>W10>W26, both 52 & 26 slopes "
+                "negative, price (W2) rising above W10 — buying absorption beginning"
+            )
+
+        # X4: 52>10>26, slope 52 negative, W2 slope turns positive (weak uptrend)
+        if (w52 > w10 > w26
+                and neg(sl_w52)
+                and pos(sl_w2)):
+            return "X4", (
+                "Weak uptrend forming: W52>W10>W26, yearly still falling "
+                "but short-term W2 slope turned positive — still below year line"
+            )
+
+        # A3 (=X5): 10>52>26, slope 52 negative
         if w10 > w52 > w26 and neg(sl_w52):
             return "A3", (
                 "Mid-bull: W10>W52>W26, trend line above yearly but yearly "
@@ -209,8 +229,17 @@ class PhaseClassifier:
             )
 
         # ── Phase B: Bull Peak / Overheating ────────────────────────────────
-        # Checked BEFORE A4/A5 because B1/B2 require same ordering (W10>W26>W52)
+        # Checked BEFORE A4/A5 because B phases require same ordering (W10>W26>W52)
         # but add the stricter all-slopes-positive requirement.
+
+        # B3: 10>26>52, all slopes positive, SAR high (overextended)
+        if (w10 > w26 > w52
+                and pos(sl_w52) and pos(sl_w26) and pos(sl_w10)
+                and sar == "high"):
+            return "B3", (
+                "Overextended bull: W10>W26>W52 all positive, SAR pressure "
+                "dots — price above SAR resistance, blow-off top risk"
+            )
 
         # B2: 10>26>52, all slopes positive, W10 slope accelerating
         if (w10 > w26 > w52
@@ -219,6 +248,15 @@ class PhaseClassifier:
             return "B2", (
                 "Peak bull (accelerating): W10>W26>W52 all positive, "
                 "W10 slope still increasing — euphoria stage, high reversal risk"
+            )
+
+        # B4: 10>26>52, all slopes positive, W10 slope decelerating (hidden divergence)
+        if (w10 > w26 > w52
+                and pos(sl_w52) and pos(sl_w26) and pos(sl_w10)
+                and sl_w10 < sl_w10_prev):
+            return "B4", (
+                "Bull decelerating: W10>W26>W52 all positive, W10 slope "
+                "flattening vs prior bar — hidden divergence, early warning"
             )
 
         # B1: 10>26>52, all slopes positive
@@ -254,7 +292,7 @@ class PhaseClassifier:
                 "dots — trend reversal confirmed, exit longs / watch for shorts"
             )
 
-        # C2: 52<10<26, slope 52 positive, SAR high dots
+        # C2: 52<10<26, slope 52 positive, SAR high dots (SAR-confirmed)
         if (w52 < w10 < w26
                 and pos(sl_w52)
                 and sar == "high"):
@@ -263,7 +301,24 @@ class PhaseClassifier:
                 "but trend line below half-year — SAR pressure confirms weakness"
             )
 
-        # C3: 10<52<26, slope 52 positive
+        # Y3: 52<10<26, slopes 52 & 26 positive, W2 below W10 (distribution, no SAR)
+        if (w52 < w10 < w26
+                and pos(sl_w52) and pos(sl_w26)
+                and w2 < w10):
+            return "Y3", (
+                "Distribution phase: W26>W10>W52, both slopes positive but "
+                "price (W2) weakening below W10 — institutional selling beginning"
+            )
+
+        # Y4: 52<10<26, slope 52 positive (fake breakdown, no SAR required)
+        if (w52 < w10 < w26
+                and pos(sl_w52)):
+            return "Y4", (
+                "Fake breakdown: W26>W10>W52, price below W26 but yearly "
+                "still rising — watch for failed breakdown / bull trap"
+            )
+
+        # C3 (=Y5): 10<52<26, slope 52 positive
         if w10 < w52 < w26 and pos(sl_w52):
             return "C3", (
                 "Mid-bear: W26>W52>W10, trend line below yearly — "
@@ -271,8 +326,17 @@ class PhaseClassifier:
             )
 
         # ── Phase D: Bear Bottom ────────────────────────────────────────────
-        # Checked BEFORE C4 because D1/D2 have same ordering as C4 (W10<W26<W52)
+        # Checked BEFORE C4 because D phases have same ordering as C4 (W10<W26<W52)
         # but add the stricter all-slopes-negative requirement.
+
+        # D3: 10<26<52, all slopes negative, SAR low dots (reversal watch)
+        if (w10 < w26 < w52
+                and neg(sl_w52) and neg(sl_w26) and neg(sl_w10)
+                and sar == "low"):
+            return "D3", (
+                "Deep bear reversal watch: W52>W26>W10 all negative, "
+                "SAR low dots appearing — potential bear exhaustion bottom"
+            )
 
         # D2: 10<26<52, all slopes negative, W10 slope accelerating downward
         if (w10 < w26 < w52
@@ -281,6 +345,15 @@ class PhaseClassifier:
             return "D2", (
                 "Bear bottom (accelerating): W52>W26>W10 all negative, "
                 "W10 slope worsening — panic selling, watch for exhaustion reversal"
+            )
+
+        # D4: 10<26<52, all slopes negative, W10 slope decelerating (hidden bullish)
+        if (w10 < w26 < w52
+                and neg(sl_w52) and neg(sl_w26) and neg(sl_w10)
+                and sl_w10 > sl_w10_prev):
+            return "D4", (
+                "Bear flattening: W52>W26>W10 all negative, W10 slope "
+                "less negative than prior bar — hidden bullish divergence, early bottom"
             )
 
         # D1: 10<26<52, all slopes negative

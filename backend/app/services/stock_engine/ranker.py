@@ -335,7 +335,18 @@ class StockRanker:
                 "crossover_event": crossover_event,
                 "explanation": explanation,
                 "phase_score": 0.0,
+                "eps": None,
             }
+
+            # Fetch EPS (trailing 12 months) from yfinance fundamentals
+            try:
+                import yfinance as yf
+                info = yf.Ticker(symbol).info
+                eps_val = info.get("trailingEps") or info.get("epsTrailingTwelveMonths")
+                result["eps"] = float(eps_val) if eps_val is not None else None
+            except Exception:
+                result["eps"] = None
+
             return result
         except Exception as e:
             logger.error(f"Analysis failed for {symbol}: {e}")

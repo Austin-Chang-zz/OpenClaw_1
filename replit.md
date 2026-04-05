@@ -341,7 +341,7 @@ Source: `User/ST125_2.pdf`, `User/ST125.pdf`
 
 ### Theory Overview
 
-ST125 uses weekly SMA crossovers + slope direction + Parabolic SAR to classify stocks into 14 sub-phases.
+ST125 uses weekly SMA crossovers + slope direction + Parabolic SAR to classify stocks into **6 phases / 28 sub-phases** (per `User/ST125_phase.md`).
 
 **MA Equivalences (weekly ↔ daily):**
 | Weekly | Daily | Period |
@@ -356,31 +356,65 @@ ST125 uses weekly SMA crossovers + slope direction + Parabolic SAR to classify s
 - MA slopes: percentage change per period
 - SAR signal: "low" (SAR < close = bullish support), "high" (SAR > close = bearish pressure)
 - Crossover events: W2 XO W10, W10 XO W26, etc. (lookback 3 bars)
+- Additional: slope acceleration (B2/D2/B4/D4), SAR for B3/D3
 
-### 14 Sub-Phases & Scores
+### 28 Sub-Phases & Scores
 
-| Phase | MA Ordering | Slope Conditions | SAR | Score | Signal |
-|-------|-------------|------------------|-----|-------|--------|
-| **X2** | W52>W26>W10 | W52/W26 negative | low | **94** | 🎯 Best bottom entry |
-| **X1** | W52>W26>W10 | W52/W26/W10 negative | — | **88** | 🎯 Bottom entry |
-| **A1** | W52>W26, W10 XO W26 | W52/W26 negative | low | **82** | 📈 Bull confirmed |
-| **A2** | W52>W10>W26 | W52 negative | low | **75** | 📈 Bull progressing |
-| **A3** | W10>W52>W26 | W52 negative | — | **67** | 📊 Mid-bull |
-| **A4** | W10>W26>W52 | W52 positive | — | **58** | 📊 Mature bull |
-| **A5** | W26>W10>W52 | W52 positive | — | **50** | 📊 Late bull |
-| **B1** | W10>W26>W52 | All positive | — | **40** | ⚠️ Full bull (overbought) |
-| **B2** | W10>W26>W52 | All positive + W10 accel | — | **32** | 🔴 Peak bull |
-| **Y1** | W10>W26>W52 | All positive, W2 UN W10 | — | **15** | 🔻 Top forming |
-| **Y2** | W10>W26>W52 | W52/W26 positive, W2 UN W10 | high | **8** | ⛔ Confirmed top — EXIT |
-| **C1** | W52<W26, W10 UN W26 | W52/W26 positive | high | **22** | 📉 Early bear |
-| **C2** | W52<W10<W26 | W52 positive | high | **20** | 📉 Bear progressing |
-| **C3** | W10<W52<W26 | W52 positive | — | **18** | 📉 Mid-bear |
-| **C4** | W10<W26<W52 | W52 negative | — | **15** | 📉 Deep bear |
-| **C5** | W26<W10<W52 | W52 negative | — | **12** | 📉 Late bear |
-| **D1** | W10<W26<W52 | All negative | — | **30** | 💀 Full bear |
-| **D2** | W10<W26<W52 | All negative + W10 accel↓ | — | **35** | 💀 Bear bottom watch |
+**Phase X – Correction / Bottoming** (🎯 Entry zone)
+| Phase | MA Ordering | Conditions | SAR | Score |
+|-------|-------------|------------|-----|-------|
+| **X2** | W52>W26>W10 | W52/W26 neg, W2 XO W10 | low | **94** |
+| **X1** | W52>W26>W10 | W52/W26/W10 neg, W2 XO W10 | — | **88** |
+| **X3** | W52>W10>W26 | W52/W26 neg, W2>W10 | — | **79** |
+| **X4** | W52>W10>W26 | W52 neg, W2 slope+ | — | **72** |
+| **X5** | W10>W52>W26 | W52 neg | — | **67** (=A3) |
 
-**Bearish exit triggers:** Phase Y→C transition (Y1, Y2, C1, C2)
+**Phase A – Adaptation / Uptrend Start** (📈 Entry zone)
+| Phase | MA Ordering | Conditions | SAR | Score |
+|-------|-------------|------------|-----|-------|
+| **A1** | W52>W26, W10 XO W26 | W52/W26 neg | low | **82** |
+| **A2** | W52>W10>W26 | W52 neg | low | **75** |
+| **A3** | W10>W52>W26 | W52 neg | — | **67** |
+| **A4** | W10>W26>W52 | W52 pos | — | **58** |
+| **A5** | W26>W10>W52 | W52 pos | — | **50** |
+
+**Phase B – Overheating / Bull Peak** (⚠️ Caution zone)
+| Phase | MA Ordering | Conditions | SAR | Score |
+|-------|-------------|------------|-----|-------|
+| **B1** | W10>W26>W52 | All pos | — | **40** |
+| **B4** | W10>W26>W52 | All pos, W10 slope decelerating | — | **36** |
+| **B2** | W10>W26>W52 | All pos, W10 slope accelerating | — | **32** |
+| **B3** | W10>W26>W52 | All pos | high | **27** |
+
+**Phase Y – Correction / Top** (🚪 Exit zone)
+| Phase | MA Ordering | Conditions | SAR | Score |
+|-------|-------------|------------|-----|-------|
+| **Y1** | W10>W26>W52 | All pos, W2 UN W10 | — | **15** |
+| **Y4** | W26>W10>W52 | W52 pos | — | **13** |
+| **Y3** | W26>W10>W52 | W52/W26 pos, W2<W10 | — | **11** |
+| **Y2** | W10>W26>W52 | W52/W26 pos, W2 UN W10 | high | **8** |
+| **Y5** | W10<W52<W26 | W52 pos | — | **18** (=C3) |
+
+**Phase C – Adaptation / Downtrend** (📉 Bearish zone)
+| Phase | MA Ordering | Conditions | SAR | Score |
+|-------|-------------|------------|-----|-------|
+| **C1** | W52<W26, W10 UN W26 | W52/W26 pos | high | **22** |
+| **C2** | W52<W10<W26 | W52 pos | high | **20** |
+| **C3** | W10<W52<W26 | W52 pos | — | **18** |
+| **C4** | W10<W26<W52 | W52 neg | — | **15** |
+| **C5** | W26<W10<W52 | W52 neg | — | **12** |
+
+**Phase D – Overheating / Bear Bottom** (💀→🌱 Watch zone)
+| Phase | MA Ordering | Conditions | SAR | Score |
+|-------|-------------|------------|-----|-------|
+| **D3** | W10<W26<W52 | All neg | low | **42** |
+| **D4** | W10<W26<W52 | All neg, W10 slope flattening | — | **38** |
+| **D2** | W10<W26<W52 | All neg, W10 slope accelerating↓ | — | **35** |
+| **D1** | W10<W26<W52 | All neg | — | **30** |
+
+**Entry triggers:** X1–X4, A1–A2 (🎯)
+**Exit triggers:** Y1–Y4, C1–C2 (🚪)
+**Note:** X5 = A3 (same MA conditions); Y5 = C3 (same MA conditions)
 
 ### Watchlists
 

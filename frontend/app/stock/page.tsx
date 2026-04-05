@@ -15,6 +15,7 @@ interface Signal {
   phase_score: number;
   close_price: number | null;
   volume_amount_100m: number | null;
+  eps: number | null;
   w10: number | null;
   w26: number | null;
   w52: number | null;
@@ -51,6 +52,8 @@ const BIG7_TSM_SET = new Set<string>(BIG7_TSM);
 const PHASE_COLORS: Record<string, string> = {
   X1: "bg-red-100 text-red-800 border-red-300",
   X2: "bg-red-200 text-red-900 border-red-400",
+  X3: "bg-red-50 text-red-700 border-red-200",
+  X4: "bg-orange-50 text-orange-700 border-orange-200",
   A1: "bg-red-100 text-red-700 border-red-300",
   A2: "bg-red-50 text-red-700 border-red-200",
   A3: "bg-rose-50 text-rose-700 border-rose-200",
@@ -58,8 +61,12 @@ const PHASE_COLORS: Record<string, string> = {
   A5: "bg-orange-50 text-orange-600 border-orange-200",
   B1: "bg-red-200 text-red-800 border-red-400",
   B2: "bg-red-300 text-red-900 border-red-500",
+  B3: "bg-red-400 text-red-950 border-red-600",
+  B4: "bg-red-200 text-red-700 border-red-400",
   Y1: "bg-amber-100 text-amber-800 border-amber-300",
   Y2: "bg-amber-200 text-amber-900 border-amber-400",
+  Y3: "bg-amber-100 text-amber-700 border-amber-200",
+  Y4: "bg-yellow-50 text-yellow-700 border-yellow-200",
   C1: "bg-green-100 text-green-700 border-green-300",
   C2: "bg-green-100 text-green-600 border-green-200",
   C3: "bg-green-200 text-green-700 border-green-300",
@@ -67,17 +74,19 @@ const PHASE_COLORS: Record<string, string> = {
   C5: "bg-emerald-200 text-emerald-800 border-emerald-400",
   D1: "bg-emerald-100 text-emerald-700 border-emerald-300",
   D2: "bg-emerald-200 text-emerald-900 border-emerald-400",
+  D3: "bg-emerald-100 text-emerald-600 border-emerald-300",
+  D4: "bg-teal-100 text-teal-700 border-teal-300",
   MIXED: "bg-gray-100 text-gray-600 border-gray-200",
   UNKNOWN: "bg-gray-50 text-gray-400 border-gray-200",
 };
 
 const PHASE_EMOJI: Record<string, string> = {
-  X1: "🔴", X2: "❤️",
+  X1: "🔴", X2: "❤️", X3: "🟥", X4: "🟠",
   A1: "📈", A2: "📈", A3: "📊", A4: "📊", A5: "📊",
-  B1: "⚠️", B2: "🔴",
-  Y1: "🔻", Y2: "⛔",
+  B1: "⚠️", B2: "🔴", B3: "🔥", B4: "⚡",
+  Y1: "🔻", Y2: "⛔", Y3: "📤", Y4: "🔶",
   C1: "📉", C2: "📉", C3: "📉", C4: "📉", C5: "📉",
-  D1: "💀", D2: "💀",
+  D1: "💀", D2: "💀", D3: "🌱", D4: "🔍",
   MIXED: "❓", UNKNOWN: "❔",
 };
 
@@ -282,7 +291,7 @@ export default function StockPage() {
               <h3 className="font-semibold text-slate-800 mb-1">ST125 / 102.5 Theory</h3>
               <p className="text-sm text-slate-600">
                 Uses weekly SMA crossovers (W2/W10/W26/<span className="font-medium text-slate-700">W52</span>) + slope direction +
-                Parabolic SAR to classify stocks into 14 sub-phases.
+                Parabolic SAR to classify stocks into <span className="font-medium text-slate-700">6 phases / 28 sub-phases</span>.
                 Higher score = better entry opportunity.
               </p>
               <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
@@ -376,6 +385,7 @@ export default function StockPage() {
                     <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">Score</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Close</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Vol 100M</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">EPS</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W10</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W26</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W52</th>
@@ -388,7 +398,7 @@ export default function StockPage() {
                     <React.Fragment key={s.symbol}>
                       {market === "US" && i === pinnedUS.length && pinnedUS.length > 0 && rankedPool.length > 0 && (
                         <tr key="divider-ranked">
-                          <td colSpan={12} className="px-4 py-1.5 bg-slate-100 border-y border-slate-200">
+                          <td colSpan={13} className="px-4 py-1.5 bg-slate-100 border-y border-slate-200">
                             <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
                               ↓ Top Signals (slope filter applied)
                             </span>
@@ -409,10 +419,10 @@ export default function StockPage() {
                             )}
                           </div>
                           <div className="flex gap-1 mt-0.5">
-                            {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
+                            {s.phase_label && ["X1","X2","X3","X4","A1","A2"].includes(s.phase_label) && (
                               <span className="text-[10px] text-red-600 font-semibold">🎯 Entry</span>
                             )}
-                            {s.phase_label && ["Y1","Y2","C1","C2"].includes(s.phase_label) && (
+                            {s.phase_label && ["Y1","Y2","Y3","Y4","C1","C2"].includes(s.phase_label) && (
                               <span className="text-[10px] text-green-600 font-semibold">🚪 Exit</span>
                             )}
                           </div>
@@ -442,6 +452,11 @@ export default function StockPage() {
                         </td>
                         <td className="px-4 py-3 text-right text-slate-700 font-mono text-xs">{fmt(s.close_price)}</td>
                         <td className="px-4 py-3 text-right text-slate-500 text-xs">{s.volume_amount_100m ? s.volume_amount_100m.toFixed(1) : "—"}</td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={`text-xs font-semibold ${s.eps !== null && s.eps !== undefined ? (s.eps >= 0 ? "text-red-600" : "text-green-600") : "text-slate-300"}`}>
+                            {s.eps !== null && s.eps !== undefined ? s.eps.toFixed(2) : "—"}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <div className={`text-xs font-semibold ${(s.slope_w10 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
                             {s.slope_w10 !== null ? `${s.slope_w10 > 0 ? "+" : ""}${s.slope_w10.toFixed(2)}%` : "—"}
@@ -498,10 +513,10 @@ export default function StockPage() {
                           <span className="ml-1 text-xs text-slate-500">{s.stock_name}</span>
                         )}
                         <div className="flex gap-1 mt-0.5">
-                          {s.phase_label && ["X1","X2","A1","A2"].includes(s.phase_label) && (
+                          {s.phase_label && ["X1","X2","X3","X4","A1","A2"].includes(s.phase_label) && (
                             <span className="text-[10px] text-red-600 font-semibold">🎯 Entry</span>
                           )}
-                          {s.phase_label && ["Y1","Y2","C1","C2"].includes(s.phase_label) && (
+                          {s.phase_label && ["Y1","Y2","Y3","Y4","C1","C2"].includes(s.phase_label) && (
                             <span className="text-[10px] text-green-600 font-semibold">🚪 Exit</span>
                           )}
                         </div>
