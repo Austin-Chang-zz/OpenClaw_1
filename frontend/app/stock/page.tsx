@@ -211,10 +211,17 @@ export default function StockPage() {
   const pinnedUS = market === "US"
     ? BIG7_TSM.map(sym => allSignals.find(s => s.symbol === sym)).filter(Boolean) as Signal[]
     : [];
-  const rankedPool = allSignals.filter(
-    s => (market !== "US" || !BIG7_TSM_SET.has(s.symbol)) && (s.slope_w10 ?? 0) > 0
-  ).slice(0, 10);
-  const signals = market === "US" ? [...pinnedUS, ...rankedPool] : rankedPool;
+  // US ranked pool: non-pinned stocks with positive slope only
+  const rankedPool = market === "US"
+    ? allSignals.filter(s => !BIG7_TSM_SET.has(s.symbol) && (s.slope_w10 ?? 0) > 0).slice(0, 10)
+    : [];
+  // TW: show all signals as-is (already sorted by score from API, no slope filter)
+  const signals = market === "US" ? [...pinnedUS, ...rankedPool] : allSignals.slice(0, 10);
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const staleDays = report?.date
+    ? Math.floor((new Date(todayStr).getTime() - new Date(report.date).getTime()) / 86400000)
+    : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -313,7 +320,7 @@ export default function StockPage() {
               <h3 className="font-semibold text-slate-700 text-sm">Phase Scoring Legend</h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0 divide-x divide-y divide-slate-100">
-              {legend.filter(p => p.phase !== "MIXED" && p.phase !== "UNKNOWN").map((p) => (
+              {legend.filter(p => p.phase !== "UNKNOWN").map((p) => (
                 <div key={p.phase} className="px-3 py-2.5 flex items-center gap-2">
                   <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[p.phase] || "bg-gray-100 text-gray-600"}`}>
                     {PHASE_EMOJI[p.phase]} {p.phase}
@@ -331,10 +338,14 @@ export default function StockPage() {
                     <div className="flex gap-1 mt-0.5">
                       {p.is_entry && <span className="text-[10px] text-red-600 font-medium">🎯 entry</span>}
                       {p.is_exit && <span className="text-[10px] text-green-600 font-medium">🚪 exit</span>}
+                      {p.phase === "MIXED" && <span className="text-[10px] text-slate-400 italic">MA in transition</span>}
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400">
+              ❓ <strong>Mixed</strong> = moving averages are in a transitional arrangement that doesn't match any of the 28 defined ST125 sub-phases. Score 25 — neutral, wait for clearer signal.
             </div>
           </div>
         )}
@@ -357,11 +368,16 @@ export default function StockPage() {
                   {market === "US" && <span className="ml-2 text-[11px] text-amber-600 font-normal">★ Big 7 + TSM always shown</span>}
                 </h2>
                 {report?.date && (
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Signal date: {report.date} ·{" "}
-                    {market === "US"
+                  <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Signal date: {report.date}</span>
+                    {staleDays > 0 && (
+                      <span className="text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                        ⚠️ {staleDays} day{staleDays > 1 ? "s" : ""} old — run analysis to refresh
+                      </span>
+                    )}
+                    <span>·{" "}{market === "US"
                       ? `${pinnedUS.length} pinned + ${rankedPool.length} ranked`
-                      : `${signals.length} results`}
+                      : `${signals.length} results`}</span>
                   </p>
                 )}
               </div>
