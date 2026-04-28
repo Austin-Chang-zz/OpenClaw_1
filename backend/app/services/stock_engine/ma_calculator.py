@@ -136,17 +136,22 @@ class MACalculator:
                     high=high, low=low, close=close,
                     step=0.02, max_step=0.2, fillna=False
                 )
-                psar_up = psar_ind.psar_up()
-                psar_down = psar_ind.psar_down()
+                # psar() returns the SAR value for EVERY bar (not just reversal bars).
+                # psar_up/psar_down only populate at reversal points so must not be used
+                # for consecutive-count calculations.
+                psar_all = psar_ind.psar()
                 for idx in close.index:
-                    lv = psar_up.get(idx) if psar_up is not None else None
-                    sv = psar_down.get(idx) if psar_down is not None else None
-                    if pd.notna(lv):
-                        sar_values[idx] = float(lv)
-                        sar_signals[idx] = "low" if float(lv) < float(close[idx]) else "unknown"
-                    elif pd.notna(sv):
-                        sar_values[idx] = float(sv)
-                        sar_signals[idx] = "high" if float(sv) > float(close[idx]) else "unknown"
+                    pv = psar_all.get(idx)
+                    if pd.notna(pv):
+                        cv = float(close[idx])
+                        fv = float(pv)
+                        sar_values[idx] = fv
+                        if fv < cv:
+                            sar_signals[idx] = "low"
+                        elif fv > cv:
+                            sar_signals[idx] = "high"
+                        else:
+                            sar_signals[idx] = "unknown"
                 return sar_values, sar_signals
             except Exception as e:
                 logger.warning(f"ta SAR failed, using fallback: {e}")
