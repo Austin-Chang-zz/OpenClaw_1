@@ -582,3 +582,148 @@ def signals_history(
             for r in rows
         ],
     }
+
+
+@router.get("/{symbol}/analysis-table")
+def get_analysis_table(symbol: str):
+    """
+    Return the K125-style Analysis Table for a symbol.
+    Provides two rows (Weekly / Daily) with:
+      - MA slopes (W26/D132, W10/D50, W2/D10)
+      - Consecutive MA crossover counts (W2×W10, W2×W26, W10×W26 weekly;
+        D10×D50, D10×D132, D50×D132 daily)
+      - Consecutive SAR dot count (weekly and daily)
+      - pvcnt: consecutive bars close is above(+) or below(-) the W2/D2 MA
+    """
+    try:
+        from ...services.stock_engine.data_fetcher import StockDataFetcher
+        from ...services.stock_engine.ma_calculator import MACalculator
+        import pandas as pd
+
+        fetcher = StockDataFetcher()
+        calc = MACalculator()
+
+        def _consec(a: "pd.Series", b: "pd.Series") -> int:
+            """Consecutive bars where a > b (returns +n) or a < b (returns -n)."""
+            common = a.dropna().index.intersection(b.dropna().index)
+            if len(common) == 0:
+                return 0
+            a_a, b_a = a[common], b[common]
+            above = bool(a_a.iloc[-1] > b_a.iloc[-1])
+            count = 0
+            for i in range(len(common) - 1, -1, -1):
+                if (a_a.iloc[i] > b_a.iloc[i]) == above:
+                    count += 1
+                else:
+                    break
+            return count if above else -count
+
+        def _sar_consec(sar_val: "pd.Series", close: "pd.Series") -> int:
+            """Consecutive bars SAR below close (+n) or above close (-n)."""
+            valid_idx = sar_val.dropna().index
+            if len(valid_idx) == 0:
+                return 0
+            last_sv = float(sar_val[valid_idx[-1]])
+            last_cv = float(close[valid_idx[-1]])
+            if last_sv >= last_cv:
+                direction = "high"
+            else:
+                direction = "low"
+            count = 0
+            for idx in reversed(valid_idx.tolist()):
+                sv = float(sar_val[idx])
+                cv = float(close[idx])
+                d = "low" if sv < cv else "high"
+                if d == direction:
+                    count += 1
+                else:
+                    break
+            return count if direction == "low" else -count
+
+        def _slope(v) -> Optional[float]:
+            try:
+                f = float(v)
+                return None if math.isnan(f) or math.isinf(f) else round(f, 2)
+            except (TypeError, ValueError):
+                return None
+
+        # ── Weekly ────────────────────────────────────────────────────────────
+        weekly_raw = fetcher.fetch_weekly_ohlcv(symbol)
+        if weekly_raw is None or len(weekly_raw) < 52:
+            raise HTTPException(status_code=404, detail=f"Insufficient weekly data for {symbol}")
+
+        wdf = calc.calculate_weekly_mas(weekly_raw)
+        latest_w = calc.get_latest_weekly_row(wdf)
+        if latest_w is None:
+            raise HTTPException(status_code=404, detail="Could not compute weekly MAs")
+
+        weekly = {
+            "phase_label": None,
+            "slope_w26":  _slope(latest_w.get("slope_w26")),
+            "slope_w10":  _slope(latest_w.get("slope_w10")),
+            "slope_w2":   _slope(latest_w.get("slope_w2")),
+            "cross_w2_w10":  _consec(wdf["W2"], wdf["W10"]),
+            "cross_w2_w26":  _consec(wdf["W2"], wdf["W26"]),
+            "cross_w10_w26": _consec(wdf["W10"], wdf["W26"]),
+            "sar_count":  _sar_consec(wdf["sar_value"], wdf["Close"]),
+            "pvcnt":      _consec(wdf["Close"], wdf["W2"]),
+        }
+
+        # Grab phase label from latest row
+        from ...services.stock_engine.phase_classifier import PhaseClassifier
+        phase_label, _, _ = PhaseClassifier().classify(wdf)
+        weekly["phase_label"] = phase_label
+
+        # ── Daily ──────────────────────────────────────────────────────────────
+        daily_raw = fetcher.fetch_daily_ohlcv(symbol)
+        if daily_raw is None or len(daily_raw) < 132:
+            raise HTTPException(status_code=404, detail=f"Insufficient daily data for {symbol}")
+
+        ddf = calc.calculate_daily_mas(daily_raw)
+        sar_d_vals, _ = calc._compute_sar(ddf["High"], ddf["Low"], ddf["Close"])
+        ddf["sar_value"] = sar_d_vals
+
+        def _last_slope(df: "pd.DataFrame", col: str) -> Optional[float]:
+            s = f"slope_{col.lower()}"
+            if s not in df.columns:
+                return None
+            valid = df[s].dropna()
+            return _slope(valid.iloc[-1]) if len(valid) else None
+
+        daily = {
+            "slope_d132": _last_slope(ddf, "D132"),
+            "slope_d50":  _last_slope(ddf, "D50"),
+            "slope_d10":  _last_slope(ddf, "D10"),
+            "cross_d10_d50":   _consec(ddf["D10"],  ddf["D50"]),
+            "cross_d10_d132":  _consec(ddf["D10"],  ddf["D132"]),
+            "cross_d50_d132":  _consec(ddf["D50"],  ddf["D132"]),
+            "sar_count":  _sar_consec(ddf["sar_value"], ddf["Close"]),
+            "pvcnt":      _consec(ddf["Close"], ddf["D2"]),
+        }
+
+        # Stock name
+        stock_name: Optional[str] = None
+        try:
+            from ...services.stock_engine.ranker import TW_NAMES, US_NAMES
+            stock_name = TW_NAMES.get(symbol) or US_NAMES.get(symbol)
+        except Exception:
+            pass
+        if not stock_name:
+            try:
+                import yfinance as yf
+                fi = yf.Ticker(symbol).fast_info
+                stock_name = getattr(fi, "display_name", None) or getattr(fi, "shortName", None)
+            except Exception:
+                pass
+
+        return {
+            "symbol":     symbol,
+            "stock_name": stock_name or symbol,
+            "weekly":     weekly,
+            "daily":      daily,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"analysis-table failed for {symbol}: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))

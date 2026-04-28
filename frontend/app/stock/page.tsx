@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 
 const StockChartWindow = dynamic(() => import("../../components/StockChartWindow"), { ssr: false });
 const DailyChartWindow = dynamic(() => import("../../components/DailyChartWindow"), { ssr: false });
+const AnalysisTableWindow = dynamic(() => import("../../components/AnalysisTableWindow"), { ssr: false });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -137,6 +138,7 @@ export default function StockPage() {
   const [showLegend, setShowLegend] = useState(false);
   const [chartWindows, setChartWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
   const [dailyChartWindows, setDailyChartWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
+  const [analysisWindows, setAnalysisWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
   const [topZSymbol, setTopZSymbol] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -166,6 +168,20 @@ export default function StockPage() {
   const closeDailyChartWindow = (symbol: string) => {
     setDailyChartWindows(prev => prev.filter(w => w.symbol !== symbol));
     setTopZSymbol(prev => (prev === `daily:${symbol}` ? null : prev));
+  };
+
+  const openAnalysisWindow = (symbol: string, stockName: string | null) => {
+    setAnalysisWindows(prev =>
+      prev.some(w => w.symbol === symbol)
+        ? prev
+        : [...prev, { symbol, stockName }]
+    );
+    setTopZSymbol(`analysis:${symbol}`);
+  };
+
+  const closeAnalysisWindow = (symbol: string) => {
+    setAnalysisWindows(prev => prev.filter(w => w.symbol !== symbol));
+    setTopZSymbol(prev => (prev === `analysis:${symbol}` ? null : prev));
   };
 
   const fetchLatest = useCallback(async (quiet = false) => {
@@ -542,6 +558,11 @@ export default function StockPage() {
                               className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="Open daily K-chart"
                             >📊 Daily</button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openAnalysisWindow(s.symbol, s.stock_name); }}
+                              className="text-[11px] bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              title="Open K125 Analysis Table"
+                            >🧮 Table</button>
                             <a
                               href={s.symbol.endsWith(".TW")
                                 ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
@@ -622,6 +643,10 @@ export default function StockPage() {
                       onClick={() => openDailyChartWindow(s.symbol, s.stock_name)}
                       className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
                     >📊 Daily</button>
+                    <button
+                      onClick={() => openAnalysisWindow(s.symbol, s.stock_name)}
+                      className="text-[11px] bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                    >🧮 Table</button>
                     <a
                       href={s.symbol.endsWith(".TW")
                         ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
@@ -699,6 +724,17 @@ export default function StockPage() {
           onFocus={() => setTopZSymbol(`daily:${w.symbol}`)}
           zIndex={topZSymbol === `daily:${w.symbol}` ? 65 : 55}
           initialOffset={idx + chartWindows.length}
+        />
+      ))}
+      {analysisWindows.map((w, idx) => (
+        <AnalysisTableWindow
+          key={w.symbol}
+          symbol={w.symbol}
+          stockName={w.stockName}
+          onClose={() => closeAnalysisWindow(w.symbol)}
+          onFocus={() => setTopZSymbol(`analysis:${w.symbol}`)}
+          zIndex={topZSymbol === `analysis:${w.symbol}` ? 70 : 60}
+          initialOffset={idx + chartWindows.length + dailyChartWindows.length}
         />
       ))}
     </div>
