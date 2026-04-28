@@ -235,7 +235,7 @@ export default function StockChartWindow({
             color: cfg.color,
             lineWidth: cfg.lineWidth,
             title: cfg.title,
-            lastValueVisible: true,
+            lastValueVisible: false,
             priceLineVisible: false,
             crosshairMarkerVisible: false,
           });

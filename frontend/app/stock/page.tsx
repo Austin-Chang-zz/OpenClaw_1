@@ -406,7 +406,7 @@ export default function StockPage() {
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W26</th>
                     <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W52</th>
                     <th className="text-center px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">SAR</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Crossover</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">More</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -493,13 +493,33 @@ export default function StockPage() {
                         </td>
                         <td className="px-4 py-3 text-center">{sarBadge(s.sar_signal)}</td>
                         <td className="px-4 py-3">
-                          {s.crossover_event ? (
-                            <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded px-1.5 py-0.5 font-mono">
-                              {s.crossover_event.replace(/_/g, " ")}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-300">—</span>
-                          )}
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openChartWindow(s.symbol, s.stock_name); }}
+                              className="text-[11px] bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              title="Open weekly K-chart"
+                            >📈 Weekly</button>
+                            <a
+                              href={`https://finance.yahoo.com/chart/${s.symbol}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              title="Daily chart on Yahoo Finance"
+                            >📊 Daily</a>
+                            <a
+                              href={s.symbol.endsWith(".TW")
+                                ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
+                                : `https://www.tradingview.com/chart/?symbol=${s.symbol}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-[11px] bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              title="MA comparison on TradingView"
+                            >🔀 Compare</a>
+                            <a
+                              href={`https://finance.yahoo.com/quote/${s.symbol}/financials/`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              title="Financial statements on Yahoo Finance"
+                            >📋 Statement</a>
+                          </div>
                         </td>
                       </tr>
                     </React.Fragment>
@@ -556,9 +576,29 @@ export default function StockPage() {
                     </div>
                     <div><span className="text-slate-400">SAR</span><div>{sarBadge(s.sar_signal)}</div></div>
                   </div>
-                  {s.explanation && (
-                    <p className="mt-2 text-xs text-slate-500 leading-relaxed line-clamp-2">{s.explanation}</p>
-                  )}
+                  <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => openChartWindow(s.symbol, s.stock_name)}
+                      className="text-[11px] bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                    >📈 Weekly</button>
+                    <a
+                      href={`https://finance.yahoo.com/chart/${s.symbol}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                    >📊 Daily</a>
+                    <a
+                      href={s.symbol.endsWith(".TW")
+                        ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
+                        : `https://www.tradingview.com/chart/?symbol=${s.symbol}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-[11px] bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                    >🔀 Compare</a>
+                    <a
+                      href={`https://finance.yahoo.com/quote/${s.symbol}/financials/`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                    >📋 Statement</a>
+                  </div>
                 </div>
               ))}
             </div>
