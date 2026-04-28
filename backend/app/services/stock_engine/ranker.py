@@ -339,14 +339,22 @@ class StockRanker:
                 "eps": None,
             }
 
-            # Count consecutive SAR dots in same direction at end of series
+            # Count consecutive SAR dots in same direction at end of series.
+            # We recompute direction from raw sar_value vs Close to avoid
+            # relying on pre-stored sar_signal strings (which may contain
+            # "unknown" entries that would incorrectly break the streak).
             try:
-                _sar_sigs = weekly_df["sar_signal"].dropna()
                 _current_sar = result["sar_signal"]
                 if _current_sar in ("low", "high"):
+                    _sv_series = weekly_df["sar_value"]
+                    _cl_series = weekly_df["Close"]
+                    _valid_idx = _sv_series.dropna().index.tolist()
                     _count = 0
-                    for _sig in reversed(_sar_sigs.tolist()):
-                        if str(_sig) == _current_sar:
+                    for _idx in reversed(_valid_idx):
+                        _sv = float(_sv_series[_idx])
+                        _cv = float(_cl_series[_idx])
+                        _dir = "low" if _sv < _cv else ("high" if _sv > _cv else "unknown")
+                        if _dir == _current_sar:
                             _count += 1
                         else:
                             break
