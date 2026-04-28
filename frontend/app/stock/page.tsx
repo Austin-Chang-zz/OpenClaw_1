@@ -109,18 +109,16 @@ const fmt = (v: number | null, dec = 2) =>
 
 const sarBadge = (sar: string | null, count: number | null) => {
   if (sar === "low") {
-    const n = count ?? 1;
     return (
       <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 tabular-nums">
-        🔴 +{n}
+        🔴 {count != null ? `+${count}` : "low"}
       </span>
     );
   }
   if (sar === "high") {
-    const n = count ?? 1;
     return (
       <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 tabular-nums">
-        🔵 -{n}
+        🔵 {count != null ? `-${count}` : "high"}
       </span>
     );
   }
