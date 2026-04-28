@@ -331,12 +331,28 @@ class StockRanker:
                 "slope_w52": _safe_float(latest_weekly, "slope_w52"),
                 "sar_value": _safe_float(latest_weekly, "sar_value"),
                 "sar_signal": str(latest_weekly.get("sar_signal", "unknown") or "unknown"),
+                "sar_count": 0,
                 "phase_label": phase_label,
                 "crossover_event": crossover_event,
                 "explanation": explanation,
                 "phase_score": 0.0,
                 "eps": None,
             }
+
+            # Count consecutive SAR dots in same direction at end of series
+            try:
+                _sar_sigs = weekly_df["sar_signal"].dropna()
+                _current_sar = result["sar_signal"]
+                if _current_sar in ("low", "high"):
+                    _count = 0
+                    for _sig in reversed(_sar_sigs.tolist()):
+                        if str(_sig) == _current_sar:
+                            _count += 1
+                        else:
+                            break
+                    result["sar_count"] = _count
+            except Exception:
+                result["sar_count"] = 0
 
             # Fetch EPS (trailing 12 months) from yfinance fundamentals
             try:

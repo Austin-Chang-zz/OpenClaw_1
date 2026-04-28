@@ -178,6 +178,7 @@ def get_latest_signals(
             "slope_w26": s.slope_w26,
             "slope_w52": s.slope_w52,
             "sar_signal": s.sar_signal,
+            "sar_count": s.sar_count,
             "crossover_event": s.crossover_event,
             "explanation": s.explanation,
         }
@@ -424,6 +425,129 @@ def get_chart_data(
         raise
     except Exception as exc:
         logger.error(f"chart-data failed for {symbol}: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/{symbol}/chart-data/daily")
+def get_daily_chart_data(
+    symbol: str,
+    days: int = Query(365, ge=60, le=1000, description="Number of daily bars to return"),
+):
+    """
+    Return daily OHLCV, D10/D50/D132/D260 MA lines, Parabolic SAR, and
+    fundamentals for a symbol.
+    """
+    try:
+        import yfinance as yf
+        from ...services.stock_engine.data_fetcher import StockDataFetcher
+        from ...services.stock_engine.ma_calculator import MACalculator
+
+        fetcher = StockDataFetcher()
+        years = max(2, math.ceil(days / 260))
+
+        daily_df = fetcher.fetch_daily_ohlcv(symbol, years=years)
+        if daily_df is None or daily_df.empty:
+            raise HTTPException(status_code=404, detail=f"No daily data for {symbol}")
+
+        daily_df = MACalculator.calculate_daily_mas(daily_df)
+        sar_vals, sar_sigs = MACalculator._compute_sar(
+            daily_df["High"], daily_df["Low"], daily_df["Close"]
+        )
+        daily_df["sar_value"] = sar_vals
+        daily_df["sar_signal"] = sar_sigs
+        daily_df = daily_df.tail(days)
+
+        def _safe(v):
+            try:
+                f = float(v)
+                return None if math.isnan(f) or math.isinf(f) else f
+            except (TypeError, ValueError):
+                return None
+
+        ohlcv = []
+        for ts, row in daily_df.iterrows():
+            ohlcv.append({
+                "time": ts.strftime("%Y-%m-%d"),
+                "open":   round(float(row["Open"]),  4),
+                "high":   round(float(row["High"]),  4),
+                "low":    round(float(row["Low"]),   4),
+                "close":  round(float(row["Close"]), 4),
+                "volume": int(row["Volume"]) if _safe(row["Volume"]) is not None else 0,
+            })
+
+        ma_lines: Dict[str, List[Dict]] = {}
+        for col in ["D10", "D50", "D132", "D260"]:
+            series = []
+            for ts, row in daily_df.iterrows():
+                v = _safe(row.get(col))
+                if v is not None:
+                    series.append({"time": ts.strftime("%Y-%m-%d"), "value": round(v, 4)})
+            ma_lines[col.lower()] = series
+
+        sar_points = []
+        for ts, row in daily_df.iterrows():
+            sv = _safe(row.get("sar_value"))
+            sig = str(row.get("sar_signal", "unknown"))
+            if sv is not None and sig in ("low", "high"):
+                sar_points.append({
+                    "time": ts.strftime("%Y-%m-%d"),
+                    "value": round(sv, 4),
+                    "signal": sig,
+                })
+
+        fundamentals: Dict[str, Any] = {}
+        stock_name = None
+        try:
+            from ...services.stock_engine.ranker import TW_NAMES, US_NAMES
+            stock_name = TW_NAMES.get(symbol) or US_NAMES.get(symbol)
+        except Exception:
+            pass
+
+        try:
+            ticker = yf.Ticker(symbol)
+            fi = ticker.fast_info
+            info: Dict[str, Any] = {}
+            try:
+                info = ticker.info or {}
+            except Exception:
+                pass
+
+            if not stock_name:
+                stock_name = (
+                    getattr(fi, "shortName", None)
+                    or info.get("shortName")
+                    or info.get("longName")
+                    or symbol
+                )
+
+            fundamentals = {
+                "market_cap":     _safe(getattr(fi, "market_cap", None) or info.get("marketCap")),
+                "pe_ratio":       _safe(info.get("trailingPE") or info.get("forwardPE")),
+                "eps":            _safe(info.get("trailingEps")),
+                "week_52_high":   _safe(getattr(fi, "year_high", None) or info.get("fiftyTwoWeekHigh")),
+                "week_52_low":    _safe(getattr(fi, "year_low",  None) or info.get("fiftyTwoWeekLow")),
+                "revenue_ttm":    _safe(info.get("totalRevenue")),
+                "dividend_yield": _safe(info.get("dividendYield") or info.get("trailingAnnualDividendYield")),
+                "sector":         info.get("sector"),
+                "industry":       info.get("industry"),
+                "currency":       getattr(fi, "currency", None) or info.get("currency"),
+                "exchange":       info.get("exchange") or info.get("fullExchangeName"),
+            }
+        except Exception as exc:
+            logger.warning(f"Fundamentals fetch failed for {symbol}: {exc}")
+
+        return {
+            "symbol":       symbol,
+            "stock_name":   stock_name,
+            "ohlcv":        ohlcv,
+            "ma_lines":     ma_lines,
+            "sar":          sar_points,
+            "fundamentals": fundamentals,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"daily chart-data failed for {symbol}: {exc}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

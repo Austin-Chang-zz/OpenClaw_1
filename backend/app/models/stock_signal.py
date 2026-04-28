@@ -34,6 +34,7 @@ class StockSignal(Base):
 
     sar_value = Column(Float)
     sar_signal = Column(String(10))
+    sar_count = Column(Integer)
 
     phase_label = Column(String(5), index=True)
     phase_score = Column(Float, default=0.0)

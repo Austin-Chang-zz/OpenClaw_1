@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 
 const StockChartWindow = dynamic(() => import("../../components/StockChartWindow"), { ssr: false });
+const DailyChartWindow = dynamic(() => import("../../components/DailyChartWindow"), { ssr: false });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface Signal {
   slope_w26: number | null;
   slope_w52: number | null;
   sar_signal: string | null;
+  sar_count: number | null;
   crossover_event: string | null;
   explanation: string | null;
 }
@@ -105,9 +107,23 @@ const getScoreBarColor = (score: number) => {
 const fmt = (v: number | null, dec = 2) =>
   v !== null && v !== undefined ? v.toFixed(dec) : "—";
 
-const sarBadge = (sar: string | null) => {
-  if (sar === "low") return <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">🔴 low</span>;
-  if (sar === "high") return <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">🔵 high</span>;
+const sarBadge = (sar: string | null, count: number | null) => {
+  if (sar === "low") {
+    const n = count ?? 1;
+    return (
+      <span className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 tabular-nums">
+        🔴 +{n}
+      </span>
+    );
+  }
+  if (sar === "high") {
+    const n = count ?? 1;
+    return (
+      <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 tabular-nums">
+        🔵 -{n}
+      </span>
+    );
+  }
   return <span className="text-xs text-gray-400">—</span>;
 };
 
@@ -122,6 +138,7 @@ export default function StockPage() {
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [chartWindows, setChartWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
+  const [dailyChartWindows, setDailyChartWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
   const [topZSymbol, setTopZSymbol] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -137,6 +154,20 @@ export default function StockPage() {
   const closeChartWindow = (symbol: string) => {
     setChartWindows(prev => prev.filter(w => w.symbol !== symbol));
     setTopZSymbol(prev => (prev === symbol ? null : prev));
+  };
+
+  const openDailyChartWindow = (symbol: string, stockName: string | null) => {
+    setDailyChartWindows(prev =>
+      prev.some(w => w.symbol === symbol)
+        ? prev
+        : [...prev, { symbol, stockName }]
+    );
+    setTopZSymbol(`daily:${symbol}`);
+  };
+
+  const closeDailyChartWindow = (symbol: string) => {
+    setDailyChartWindows(prev => prev.filter(w => w.symbol !== symbol));
+    setTopZSymbol(prev => (prev === `daily:${symbol}` ? null : prev));
   };
 
   const fetchLatest = useCallback(async (quiet = false) => {
@@ -347,6 +378,15 @@ export default function StockPage() {
             <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400">
               ❓ <strong>Mixed</strong> = moving averages are in a transitional arrangement that doesn't match any of the 28 defined ST125 sub-phases. Score 25 — neutral, wait for clearer signal.
             </div>
+            <div className="px-4 py-4 border-t border-slate-100 bg-white">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">ST125 / 102.5 Phase Diagram</div>
+              <img
+                src="/6_phases.png"
+                alt="ST125 6-phase diagram"
+                className="max-w-full rounded-lg border border-slate-200 shadow-sm"
+                style={{ maxHeight: "420px", objectFit: "contain" }}
+              />
+            </div>
           </div>
         )}
 
@@ -491,7 +531,7 @@ export default function StockPage() {
                           </div>
                           <div className="text-xs text-slate-500 font-mono">{fmt(s.w52)}</div>
                         </td>
-                        <td className="px-4 py-3 text-center">{sarBadge(s.sar_signal)}</td>
+                        <td className="px-4 py-3 text-center">{sarBadge(s.sar_signal, s.sar_count)}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
                             <button
@@ -499,12 +539,11 @@ export default function StockPage() {
                               className="text-[11px] bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="Open weekly K-chart"
                             >📈 Weekly</button>
-                            <a
-                              href={`https://finance.yahoo.com/chart/${s.symbol}`}
-                              target="_blank" rel="noopener noreferrer"
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openDailyChartWindow(s.symbol, s.stock_name); }}
                               className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
-                              title="Daily chart on Yahoo Finance"
-                            >📊 Daily</a>
+                              title="Open daily K-chart"
+                            >📊 Daily</button>
                             <a
                               href={s.symbol.endsWith(".TW")
                                 ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
@@ -574,18 +613,17 @@ export default function StockPage() {
                       </div>
                       <div className="font-mono text-slate-500">{fmt(s.w10)}</div>
                     </div>
-                    <div><span className="text-slate-400">SAR</span><div>{sarBadge(s.sar_signal)}</div></div>
+                    <div><span className="text-slate-400">SAR</span><div>{sarBadge(s.sar_signal, s.sar_count)}</div></div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => openChartWindow(s.symbol, s.stock_name)}
                       className="text-[11px] bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
                     >📈 Weekly</button>
-                    <a
-                      href={`https://finance.yahoo.com/chart/${s.symbol}`}
-                      target="_blank" rel="noopener noreferrer"
+                    <button
+                      onClick={() => openDailyChartWindow(s.symbol, s.stock_name)}
                       className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
-                    >📊 Daily</a>
+                    >📊 Daily</button>
                     <a
                       href={s.symbol.endsWith(".TW")
                         ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
@@ -652,6 +690,17 @@ export default function StockPage() {
           onFocus={() => setTopZSymbol(w.symbol)}
           zIndex={topZSymbol === w.symbol ? 60 : 50}
           initialOffset={idx}
+        />
+      ))}
+      {dailyChartWindows.map((w, idx) => (
+        <DailyChartWindow
+          key={w.symbol}
+          symbol={w.symbol}
+          stockName={w.stockName}
+          onClose={() => closeDailyChartWindow(w.symbol)}
+          onFocus={() => setTopZSymbol(`daily:${w.symbol}`)}
+          zIndex={topZSymbol === `daily:${w.symbol}` ? 65 : 55}
+          initialOffset={idx + chartWindows.length}
         />
       ))}
     </div>
