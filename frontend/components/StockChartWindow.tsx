@@ -222,11 +222,11 @@ export default function StockChartWindow({
       );
 
       // MA overlay lines
-      const maConfigs: { key: keyof ChartData["ma_lines"]; color: string; lineWidth: 1 | 2; title: string }[] = [
-        { key: "w2",  color: "#94a3b8", lineWidth: 1, title: "W2"  },
-        { key: "w10", color: "#3b82f6", lineWidth: 2, title: "W10" },
-        { key: "w26", color: "#f97316", lineWidth: 2, title: "W26" },
-        { key: "w52", color: "#ef4444", lineWidth: 2, title: "W52" },
+      const maConfigs: { key: keyof ChartData["ma_lines"]; color: string; lineWidth: 1 | 2 }[] = [
+        { key: "w2",  color: "#94a3b8", lineWidth: 1 },
+        { key: "w10", color: "#3b82f6", lineWidth: 2 },
+        { key: "w26", color: "#f97316", lineWidth: 2 },
+        { key: "w52", color: "#ef4444", lineWidth: 2 },
       ];
       for (const cfg of maConfigs) {
         const lineData = data.ma_lines[cfg.key] ?? [];
@@ -234,7 +234,7 @@ export default function StockChartWindow({
           const ls = chart.addLineSeries({
             color: cfg.color,
             lineWidth: cfg.lineWidth,
-            title: cfg.title,
+            title: "",
             lastValueVisible: false,
             priceLineVisible: false,
             crosshairMarkerVisible: false,
