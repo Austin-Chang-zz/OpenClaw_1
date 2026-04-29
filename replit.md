@@ -12,10 +12,12 @@ OpenClaw is a secure, AI-driven content production and research automation syste
 
 ### Frontend (Port 5000)
 - **Framework:** Next.js 14 with App Router
-- **Styling:** Tailwind CSS
+- **Styling:** Tailwind CSS (with `darkMode: "class"` for light/dark toggle)
 - **Language:** TypeScript
 - **Location:** `frontend/`
 - **Entry:** `frontend/app/page.tsx`
+- **Theme toggle:** `frontend/components/ThemeToggle.tsx` (🌙/☀️ button in navbar, persisted to localStorage)
+- **Dark mode hook:** `frontend/hooks/useDarkMode.ts` (used in chart windows to update chart colors)
 
 ### Backend (Port 3001)
 - **Framework:** FastAPI (Python 3.11)

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import ThemeToggle from "../../components/ThemeToggle";
 
 const StockChartWindow = dynamic(() => import("../../components/StockChartWindow"), { ssr: false });
 const DailyChartWindow = dynamic(() => import("../../components/DailyChartWindow"), { ssr: false });
@@ -269,7 +270,7 @@ export default function StockPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors duration-200">
       {/* Header */}
       <header className="bg-slate-900 text-white px-6 py-4 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
@@ -307,6 +308,7 @@ export default function StockPage() {
             >
               {showLegend ? "▲ Hide Legend" : "▼ Phase Legend"}
             </button>
+            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -317,10 +319,10 @@ export default function StockPage() {
         {runStatus && (
           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${
             running
-              ? "bg-blue-50 border-blue-200 text-blue-800"
+              ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200"
               : runStatus.toLowerCase().includes("error")
-              ? "bg-red-50 border-red-200 text-red-800"
-              : "bg-emerald-50 border-emerald-200 text-emerald-800"
+              ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300"
+              : "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300"
           }`}>
             {running && (
               <svg className="animate-spin h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24">
@@ -336,23 +338,23 @@ export default function StockPage() {
         )}
 
         {/* Theory card */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
           <div className="flex items-start gap-3">
             <div className="text-2xl">📐</div>
             <div>
-              <h3 className="font-semibold text-slate-800 mb-1">ST125 / 102.5 Theory</h3>
-              <p className="text-sm text-slate-600">
-                Uses weekly SMA crossovers (W2/W10/W26/<span className="font-medium text-slate-700">W52</span>) + slope direction +
-                Parabolic SAR to classify stocks into <span className="font-medium text-slate-700">6 phases / 28 sub-phases</span>.
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">ST125 / 102.5 Theory</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Uses weekly SMA crossovers (W2/W10/W26/<span className="font-medium text-slate-700 dark:text-slate-200">W52</span>) + slope direction +
+                Parabolic SAR to classify stocks into <span className="font-medium text-slate-700 dark:text-slate-200">6 phases / 28 sub-phases</span>.
                 Higher score = better entry opportunity.
               </p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                <span className="bg-slate-100 rounded px-2 py-0.5">W52=D260 (1yr)</span>
-                <span className="bg-slate-100 rounded px-2 py-0.5">W26=D132 (6mo)</span>
-                <span className="bg-slate-100 rounded px-2 py-0.5">W10=D50 (10wk)</span>
-                <span className="bg-slate-100 rounded px-2 py-0.5">W2=D10 (2wk)</span>
-                <span className="bg-red-50 text-red-700 rounded px-2 py-0.5">🔴 SAR low = support</span>
-                <span className="bg-blue-50 text-blue-700 rounded px-2 py-0.5">🔵 SAR high = pressure</span>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W52=D260 (1yr)</span>
+                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W26=D132 (6mo)</span>
+                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W10=D50 (10wk)</span>
+                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W2=D10 (2wk)</span>
+                <span className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded px-2 py-0.5">🔴 SAR low = support</span>
+                <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded px-2 py-0.5">🔵 SAR high = pressure</span>
               </div>
             </div>
           </div>
@@ -360,11 +362,11 @@ export default function StockPage() {
 
         {/* Phase Legend (collapsible) */}
         {showLegend && legend.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-              <h3 className="font-semibold text-slate-700 text-sm">Phase Scoring Legend</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Phase Scoring Legend</h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0 divide-x divide-y divide-slate-100">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0 divide-x divide-y divide-slate-100 dark:divide-slate-700">
               {legend.filter(p => p.phase !== "UNKNOWN").map((p) => (
                 <div key={p.phase} className="px-3 py-2.5 flex items-center gap-2">
                   <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[p.phase] || "bg-gray-100 text-gray-600"}`}>
@@ -378,7 +380,7 @@ export default function StockPage() {
                           style={{ width: `${p.base_score}%` }}
                         />
                       </div>
-                      <span className="text-xs text-slate-500 w-5 text-right">{p.base_score}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 w-5 text-right">{p.base_score}</span>
                     </div>
                     <div className="flex gap-1 mt-0.5">
                       {p.is_entry && <span className="text-[10px] text-red-600 font-medium">🎯 entry</span>}
@@ -389,11 +391,11 @@ export default function StockPage() {
                 </div>
               ))}
             </div>
-            <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-400">
+            <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-[11px] text-slate-400 dark:text-slate-500">
               ❓ <strong>Mixed</strong> = moving averages are in a transitional arrangement that doesn't match any of the 28 defined ST125 sub-phases. Score 25 — neutral, wait for clearer signal.
             </div>
-            <div className="px-4 py-4 border-t border-slate-100 bg-white">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">ST125 / 102.5 Phase Diagram</div>
+            <div className="px-4 py-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">ST125 / 102.5 Phase Diagram</div>
               <img
                 src="/6_phases.png"
                 alt="ST125 6-phase diagram"
@@ -406,7 +408,7 @@ export default function StockPage() {
 
         {/* Signals table */}
         {loading ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-center py-24 text-slate-400">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center py-24 text-slate-400 dark:text-slate-500">
             <svg className="animate-spin h-6 w-6 mr-3 text-blue-400" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -414,10 +416,10 @@ export default function StockPage() {
             Loading signals…
           </div>
         ) : signals.length > 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-slate-800 text-sm">
+                <h2 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
                   {market === "TW" ? "🇹🇼 Taiwan" : "🇺🇸 US"} — Top Signals
                   {market === "US" && <span className="ml-2 text-[11px] text-amber-600 font-normal">★ Big 7 + TSM always shown</span>}
                 </h2>
@@ -446,44 +448,44 @@ export default function StockPage() {
             {/* Desktop table */}
             <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-100">
+                <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700">
                   <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-8">#</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Symbol</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Phase</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">Score</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Close</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Vol 100M</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">EPS</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W10</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W26</th>
-                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">W52</th>
-                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">SAR</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">More</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-8">#</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Symbol</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Name</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Phase</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-28">Score</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Close</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Vol 100M</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">EPS</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">W10</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">W26</th>
+                    <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">W52</th>
+                    <th className="text-center px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">SAR</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">More</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
                   {signals.map((s, i) => (
                     <React.Fragment key={s.symbol}>
                       {market === "US" && i === pinnedUS.length && pinnedUS.length > 0 && rankedPool.length > 0 && (
                         <tr key="divider-ranked">
-                          <td colSpan={13} className="px-4 py-1.5 bg-slate-100 border-y border-slate-200">
-                            <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wide">
+                          <td colSpan={13} className="px-4 py-1.5 bg-slate-100 dark:bg-slate-700/50 border-y border-slate-200 dark:border-slate-700">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide">
                               ↓ Top Signals (slope filter applied)
                             </span>
                           </td>
                         </tr>
                       )}
                       <tr
-                        className="hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer transition-colors"
                         onClick={() => openChartWindow(s.symbol, s.stock_name)}
                         title={`Click to open weekly K-chart for ${s.symbol}`}
                       >
-                        <td className="px-4 py-3 text-xs text-slate-400 font-medium">{i + 1}</td>
+                        <td className="px-4 py-3 text-xs text-slate-400 dark:text-slate-500 font-medium">{i + 1}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono font-bold text-slate-800">{s.symbol}</span>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{s.symbol}</span>
                             {market === "US" && BIG7_TSM_SET.has(s.symbol) && (
                               <span className="text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded px-1 py-0.5">★</span>
                             )}
@@ -498,7 +500,7 @@ export default function StockPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3 max-w-[130px]">
-                          <span className="text-sm text-slate-700 block truncate" title={s.stock_name || ""}>
+                          <span className="text-sm text-slate-700 dark:text-slate-300 block truncate" title={s.stock_name || ""}>
                             {s.stock_name || "—"}
                           </span>
                         </td>
@@ -515,13 +517,13 @@ export default function StockPage() {
                                 style={{ width: `${s.phase_score}%` }}
                               />
                             </div>
-                            <span className="text-xs font-semibold text-slate-700 w-8 text-right">
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 w-8 text-right">
                               {s.phase_score?.toFixed(1)}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-700 font-mono text-xs">{fmt(s.close_price)}</td>
-                        <td className="px-4 py-3 text-right text-slate-500 text-xs">{s.volume_amount_100m ? s.volume_amount_100m.toFixed(1) : "—"}</td>
+                        <td className="px-4 py-3 text-right text-slate-700 dark:text-slate-300 font-mono text-xs">{fmt(s.close_price)}</td>
+                        <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 text-xs">{s.volume_amount_100m ? s.volume_amount_100m.toFixed(1) : "—"}</td>
                         <td className="px-4 py-3 text-right">
                           <span className={`text-xs font-semibold ${s.eps !== null && s.eps !== undefined ? (s.eps >= 0 ? "text-red-600" : "text-green-600") : "text-slate-300"}`}>
                             {s.eps !== null && s.eps !== undefined ? s.eps.toFixed(2) : "—"}
@@ -531,36 +533,36 @@ export default function StockPage() {
                           <div className={`text-xs font-semibold ${(s.slope_w10 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
                             {s.slope_w10 !== null ? `${s.slope_w10 > 0 ? "+" : ""}${s.slope_w10.toFixed(2)}%` : "—"}
                           </div>
-                          <div className="text-xs text-slate-500 font-mono">{fmt(s.w10)}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">{fmt(s.w10)}</div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className={`text-xs font-semibold ${(s.slope_w26 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
                             {s.slope_w26 !== null ? `${s.slope_w26 > 0 ? "+" : ""}${s.slope_w26.toFixed(2)}%` : "—"}
                           </div>
-                          <div className="text-xs text-slate-500 font-mono">{fmt(s.w26)}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">{fmt(s.w26)}</div>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className={`text-xs font-semibold ${(s.slope_w52 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
                             {s.slope_w52 !== null ? `${s.slope_w52 > 0 ? "+" : ""}${s.slope_w52.toFixed(2)}%` : "—"}
                           </div>
-                          <div className="text-xs text-slate-500 font-mono">{fmt(s.w52)}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">{fmt(s.w52)}</div>
                         </td>
                         <td className="px-4 py-3 text-center">{sarBadge(s.sar_signal, s.sar_count)}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
                             <button
                               onClick={(e) => { e.stopPropagation(); openChartWindow(s.symbol, s.stock_name); }}
-                              className="text-[11px] bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="Open weekly K-chart"
                             >📈 Weekly</button>
                             <button
                               onClick={(e) => { e.stopPropagation(); openDailyChartWindow(s.symbol, s.stock_name); }}
-                              className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-orange-100 dark:hover:bg-orange-900/40 hover:text-orange-700 dark:hover:text-orange-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="Open daily K-chart"
                             >📊 Daily</button>
                             <button
                               onClick={(e) => { e.stopPropagation(); openAnalysisWindow(s.symbol, s.stock_name); }}
-                              className="text-[11px] bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 hover:text-indigo-700 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="Open K125 Analysis Table"
                             >🧮 Table</button>
                             <a
@@ -568,13 +570,13 @@ export default function StockPage() {
                                 ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
                                 : `https://www.tradingview.com/chart/?symbol=${s.symbol}`}
                               target="_blank" rel="noopener noreferrer"
-                              className="text-[11px] bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/40 hover:text-purple-700 dark:hover:text-purple-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="MA comparison on TradingView"
                             >🔀 Compare</a>
                             <a
                               href={`https://finance.yahoo.com/quote/${s.symbol}/financials/`}
                               target="_blank" rel="noopener noreferrer"
-                              className="text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-600 rounded px-1.5 py-0.5 font-medium transition-colors"
+                              className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium transition-colors"
                               title="Financial statements on Yahoo Finance"
                             >📋 Statement</a>
                           </div>
@@ -587,19 +589,19 @@ export default function StockPage() {
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden divide-y divide-slate-100">
+            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-700/50">
               {signals.map((s, i) => (
                 <div
                   key={s.symbol}
-                  className="px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors"
                   onClick={() => openChartWindow(s.symbol, s.stock_name)}
                   title="Tap to open weekly K-chart"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400 w-4">{i + 1}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500 w-4">{i + 1}</span>
                       <div>
-                        <span className="font-mono font-bold text-slate-800 text-sm">{s.symbol}</span>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-sm">{s.symbol}</span>
                         {market === "US" && BIG7_TSM_SET.has(s.symbol) && (
                           <span className="text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200 rounded px-1 py-0.5">★</span>
                         )}
@@ -620,44 +622,44 @@ export default function StockPage() {
                       <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${PHASE_COLORS[s.phase_label] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
                         {PHASE_EMOJI[s.phase_label] || "❔"} {s.phase_label || "—"}
                       </span>
-                      <span className="text-sm font-bold text-slate-700">{s.phase_score?.toFixed(0)}</span>
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{s.phase_score?.toFixed(0)}</span>
                     </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-500">
-                    <div><span className="text-slate-400">Close</span><div className="font-mono font-medium text-slate-700">{fmt(s.close_price)}</div></div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <div><span className="text-slate-400 dark:text-slate-500">Close</span><div className="font-mono font-medium text-slate-700 dark:text-slate-300">{fmt(s.close_price)}</div></div>
                     <div>
-                      <span className="text-slate-400">W10</span>
+                      <span className="text-slate-400 dark:text-slate-500">W10</span>
                       <div className={`text-xs font-semibold ${(s.slope_w10 ?? 0) > 0 ? "text-red-600" : "text-green-600"}`}>
                         {s.slope_w10 !== null ? `${s.slope_w10 > 0 ? "+" : ""}${s.slope_w10.toFixed(2)}%` : "—"}
                       </div>
-                      <div className="font-mono text-slate-500">{fmt(s.w10)}</div>
+                      <div className="font-mono text-slate-500 dark:text-slate-400">{fmt(s.w10)}</div>
                     </div>
-                    <div><span className="text-slate-400">SAR</span><div>{sarBadge(s.sar_signal, s.sar_count)}</div></div>
+                    <div><span className="text-slate-400 dark:text-slate-500">SAR</span><div>{sarBadge(s.sar_signal, s.sar_count)}</div></div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => openChartWindow(s.symbol, s.stock_name)}
-                      className="text-[11px] bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                      className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:text-blue-700 dark:hover:text-blue-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium"
                     >📈 Weekly</button>
                     <button
                       onClick={() => openDailyChartWindow(s.symbol, s.stock_name)}
-                      className="text-[11px] bg-slate-100 hover:bg-orange-100 hover:text-orange-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                      className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-orange-100 dark:hover:bg-orange-900/40 hover:text-orange-700 dark:hover:text-orange-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium"
                     >📊 Daily</button>
                     <button
                       onClick={() => openAnalysisWindow(s.symbol, s.stock_name)}
-                      className="text-[11px] bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                      className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 hover:text-indigo-700 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium"
                     >🧮 Table</button>
                     <a
                       href={s.symbol.endsWith(".TW")
                         ? `https://tw.tradingview.com/chart/?symbol=TWSE%3A${s.symbol.replace(".TW","")}`
                         : `https://www.tradingview.com/chart/?symbol=${s.symbol}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="text-[11px] bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                      className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/40 hover:text-purple-700 dark:hover:text-purple-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium"
                     >🔀 Compare</a>
                     <a
                       href={`https://finance.yahoo.com/quote/${s.symbol}/financials/`}
                       target="_blank" rel="noopener noreferrer"
-                      className="text-[11px] bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-600 rounded px-1.5 py-0.5 font-medium"
+                      className="text-[11px] bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:text-emerald-700 dark:hover:text-emerald-300 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5 font-medium"
                     >📋 Statement</a>
                   </div>
                 </div>
@@ -666,9 +668,9 @@ export default function StockPage() {
           </div>
         ) : (
           /* Empty state */
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center py-20 text-slate-400 text-center px-6">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500 text-center px-6">
             <div className="text-5xl mb-4">📊</div>
-            <p className="font-medium text-slate-600 mb-1">No signals yet for {market === "TW" ? "Taiwan" : "US"} market</p>
+            <p className="font-medium text-slate-600 dark:text-slate-300 mb-1">No signals yet for {market === "TW" ? "Taiwan" : "US"} market</p>
             <p className="text-sm mb-6">
               Click <strong>Run Analysis</strong> to fetch market data, compute ST125 phases,
               and rank the top opportunities.
@@ -696,7 +698,7 @@ export default function StockPage() {
         )}
 
         {/* Disclaimer */}
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
           ⚠️ <strong>Disclaimer:</strong> ST125 signals are for research and informational purposes only.
           They do not constitute financial advice. All investments carry risk.
           Please conduct your own due diligence before making any investment decisions.

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Rnd } from "react-rnd";
+import { useDarkMode } from "../hooks/useDarkMode";
 import type {
   IChartApi,
   ISeriesApi,
@@ -140,6 +141,7 @@ export default function StockChartWindow({
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<OHLCTooltip | null>(null);
   const isMobile = useIsMobile();
+  const isDark = useDarkMode();
 
   // Fetch chart data
   useEffect(() => {
@@ -179,21 +181,22 @@ export default function StockChartWindow({
       }
 
       const container = chartContainerRef.current;
+      const dark = document.documentElement.classList.contains("dark");
       const chart = createChart(container, {
         width: container.clientWidth,
         height: container.clientHeight,
         layout: {
-          background: { color: "#ffffff" },
-          textColor: "#334155",
+          background: { color: dark ? "#1e293b" : "#ffffff" },
+          textColor: dark ? "#e2e8f0" : "#334155",
           fontSize: 11,
         },
         grid: {
-          vertLines: { color: "#f1f5f9" },
-          horzLines: { color: "#f1f5f9" },
+          vertLines: { color: dark ? "#334155" : "#f1f5f9" },
+          horzLines: { color: dark ? "#334155" : "#f1f5f9" },
         },
-        rightPriceScale: { borderColor: "#e2e8f0" },
+        rightPriceScale: { borderColor: dark ? "#475569" : "#e2e8f0" },
         timeScale: {
-          borderColor: "#e2e8f0",
+          borderColor: dark ? "#475569" : "#e2e8f0",
           timeVisible: false,
           fixLeftEdge: true,
           fixRightEdge: true,
@@ -298,7 +301,7 @@ export default function StockChartWindow({
       observer.observe(container);
       observerRef.current = observer;
     });
-  }, [data]);
+  }, [data, isDark]);
 
   useEffect(() => {
     buildChart();
@@ -310,6 +313,23 @@ export default function StockChartWindow({
       candleSeriesRef.current = null;
     };
   }, [buildChart]);
+
+  // Update chart colors when dark mode changes (without full rebuild)
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.applyOptions({
+      layout: {
+        background: { color: isDark ? "#1e293b" : "#ffffff" },
+        textColor: isDark ? "#e2e8f0" : "#334155",
+      },
+      grid: {
+        vertLines: { color: isDark ? "#334155" : "#f1f5f9" },
+        horzLines: { color: isDark ? "#334155" : "#f1f5f9" },
+      },
+      rightPriceScale: { borderColor: isDark ? "#475569" : "#e2e8f0" },
+      timeScale: { borderColor: isDark ? "#475569" : "#e2e8f0" },
+    });
+  }, [isDark]);
 
   // ── Shared inner content ───────────────────────────────────────────────────
 
@@ -329,7 +349,7 @@ export default function StockChartWindow({
 
   const innerContent = (
     <div
-      className="flex flex-col w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl border border-slate-200"
+      className="flex flex-col w-full h-full bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700"
       onMouseDown={onFocus}
     >
       {/* Title bar / drag handle */}
@@ -396,7 +416,7 @@ export default function StockChartWindow({
         {!loading && !error && data && (
           <>
             {/* MA legend */}
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-xs flex-shrink-0 flex-wrap">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 dark:bg-slate-700/60 border-b border-slate-100 dark:border-slate-700 text-xs flex-shrink-0 flex-wrap">
               {(
                 [
                   { label: "W2",  color: "#94a3b8" },
@@ -410,18 +430,18 @@ export default function StockChartWindow({
                     className="inline-block w-5 h-0.5 rounded"
                     style={{ backgroundColor: color }}
                   />
-                  <span className="text-slate-600">{label}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{label}</span>
                 </span>
               ))}
               <span className="flex items-center gap-1">
                 <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-slate-500">SAR low</span>
+                <span className="text-slate-500 dark:text-slate-400">SAR low</span>
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-slate-500">SAR high</span>
+                <span className="text-slate-500 dark:text-slate-400">SAR high</span>
               </span>
-              <span className="ml-auto text-slate-400 hidden sm:inline">
+              <span className="ml-auto text-slate-400 dark:text-slate-500 hidden sm:inline">
                 🔴 up · 🟢 down (Chinese convention)
               </span>
             </div>
@@ -464,17 +484,17 @@ export default function StockChartWindow({
             </div>
 
             {/* Fundamentals panel */}
-            <div className="flex-shrink-0 border-t border-slate-100 px-4 py-2.5 bg-slate-50">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+            <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50">
+              <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                 Fundamentals · {data.symbol}
                 {fundamentals.currency ? ` (${fundamentals.currency})` : ""}
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-6 gap-y-1.5">
                 {fundRows.map(([label, value]) => (
                   <div key={label}>
-                    <div className="text-[10px] text-slate-400">{label}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{label}</div>
                     <div
-                      className="text-xs font-semibold text-slate-700 truncate"
+                      className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate"
                       title={value}
                     >
                       {value}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Rnd } from "react-rnd";
+import { useDarkMode } from "../hooks/useDarkMode";
 import type {
   IChartApi,
   ISeriesApi,
@@ -134,6 +135,7 @@ export default function DailyChartWindow({
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<OHLCTooltip | null>(null);
   const isMobile = useIsMobile();
+  const isDark = useDarkMode();
 
   useEffect(() => {
     setLoading(true);
@@ -164,20 +166,25 @@ export default function DailyChartWindow({
       }
 
       const container = chartContainerRef.current;
+      const dark = document.documentElement.classList.contains("dark");
       const chart = createChart(container, {
         width: container.clientWidth,
         height: container.clientHeight,
-        layout: { background: { color: "#ffffff" }, textColor: "#334155", fontSize: 11 },
-        grid: {
-          vertLines: { color: "#f1f5f9" },
-          horzLines: { color: "#f1f5f9" },
+        layout: {
+          background: { color: dark ? "#1e293b" : "#ffffff" },
+          textColor: dark ? "#e2e8f0" : "#334155",
+          fontSize: 11,
         },
-        rightPriceScale: { borderColor: "#e2e8f0" },
+        grid: {
+          vertLines: { color: dark ? "#334155" : "#f1f5f9" },
+          horzLines: { color: dark ? "#334155" : "#f1f5f9" },
+        },
+        rightPriceScale: { borderColor: dark ? "#475569" : "#e2e8f0" },
         timeScale: {
-          borderColor: "#e2e8f0",
+          borderColor: dark ? "#475569" : "#e2e8f0",
           timeVisible: true,
           fixLeftEdge: true,
-          fixRightEdge: true,
+          fixRightEdge: false,
         },
         crosshair: { mode: CrosshairMode.Normal },
         handleScroll: { mouseWheel: true, pressedMouseMove: true },
@@ -237,7 +244,15 @@ export default function DailyChartWindow({
         candleSeries.setMarkers(sarMarkers);
       }
 
-      chart.timeScale().fitContent();
+      // Show last ~120 bars (~6 months) right-aligned, matching weekly chart bar density
+      const ohlcvLen = data.ohlcv.length;
+      if (ohlcvLen > 0) {
+        const visibleBars = 120;
+        chart.timeScale().setVisibleLogicalRange({
+          from: Math.max(-0.5, ohlcvLen - visibleBars - 0.5),
+          to: ohlcvLen - 0.5 + 5,
+        });
+      }
 
       chart.subscribeCrosshairMove((param: MouseEventParams) => {
         if (!param.time || !param.point || !candleSeriesRef.current) {
@@ -272,7 +287,7 @@ export default function DailyChartWindow({
       observer.observe(container);
       observerRef.current = observer;
     });
-  }, [data]);
+  }, [data, isDark]);
 
   useEffect(() => {
     buildChart();
@@ -284,6 +299,23 @@ export default function DailyChartWindow({
       candleSeriesRef.current = null;
     };
   }, [buildChart]);
+
+  // Update chart colors when dark mode changes (without full rebuild)
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.applyOptions({
+      layout: {
+        background: { color: isDark ? "#1e293b" : "#ffffff" },
+        textColor: isDark ? "#e2e8f0" : "#334155",
+      },
+      grid: {
+        vertLines: { color: isDark ? "#334155" : "#f1f5f9" },
+        horzLines: { color: isDark ? "#334155" : "#f1f5f9" },
+      },
+      rightPriceScale: { borderColor: isDark ? "#475569" : "#e2e8f0" },
+      timeScale: { borderColor: isDark ? "#475569" : "#e2e8f0" },
+    });
+  }, [isDark]);
 
   const fundamentals = data?.fundamentals ?? {};
   const fundRows: [string, string][] = [
@@ -301,7 +333,7 @@ export default function DailyChartWindow({
 
   const innerContent = (
     <div
-      className="flex flex-col w-full h-full bg-white rounded-xl overflow-hidden shadow-2xl border border-slate-200"
+      className="flex flex-col w-full h-full bg-white dark:bg-slate-800 rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700"
       onMouseDown={onFocus}
     >
       <div className="chart-drag-handle flex items-center justify-between pl-4 pr-3 py-2 bg-orange-900 text-white flex-shrink-0 cursor-move select-none">
@@ -344,7 +376,7 @@ export default function DailyChartWindow({
 
         {!loading && !error && data && (
           <>
-            <div className="flex items-center gap-3 px-3 py-1.5 bg-orange-50 border-b border-orange-100 text-xs flex-shrink-0 flex-wrap">
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-orange-50 dark:bg-slate-700/60 border-b border-orange-100 dark:border-slate-700 text-xs flex-shrink-0 flex-wrap">
               {([
                 { label: "D10",  color: "#3b82f6" },
                 { label: "D50",  color: "#f97316" },
@@ -353,18 +385,18 @@ export default function DailyChartWindow({
               ] as const).map(({ label, color }) => (
                 <span key={label} className="flex items-center gap-1">
                   <span className="inline-block w-5 h-0.5 rounded" style={{ backgroundColor: color }} />
-                  <span className="text-slate-600">{label}</span>
+                  <span className="text-slate-600 dark:text-slate-300">{label}</span>
                 </span>
               ))}
               <span className="flex items-center gap-1">
                 <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
-                <span className="text-slate-500">SAR low</span>
+                <span className="text-slate-500 dark:text-slate-400">SAR low</span>
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-slate-500">SAR high</span>
+                <span className="text-slate-500 dark:text-slate-400">SAR high</span>
               </span>
-              <span className="ml-auto text-slate-400 hidden sm:inline">🔴 up · 🟢 down (Chinese convention)</span>
+              <span className="ml-auto text-slate-400 dark:text-slate-500 hidden sm:inline">🔴 up · 🟢 down (Chinese convention)</span>
             </div>
 
             <div className="flex-1 min-h-0 relative">
@@ -392,16 +424,16 @@ export default function DailyChartWindow({
               )}
             </div>
 
-            <div className="flex-shrink-0 border-t border-slate-100 px-4 py-2.5 bg-slate-50">
-              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+            <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50">
+              <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                 Fundamentals · {data.symbol}
                 {fundamentals.currency ? ` (${fundamentals.currency})` : ""}
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-6 gap-y-1.5">
                 {fundRows.map(([label, value]) => (
                   <div key={label}>
-                    <div className="text-[10px] text-slate-400">{label}</div>
-                    <div className="text-xs font-semibold text-slate-700 truncate" title={value}>{value}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">{label}</div>
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate" title={value}>{value}</div>
                   </div>
                 ))}
               </div>
