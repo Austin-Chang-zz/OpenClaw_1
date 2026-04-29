@@ -317,7 +317,7 @@ export default function DailyChartWindow({
       observer.observe(container);
       observerRef.current = observer;
     });
-  }, [data, isDark]);
+  }, [data, isDark, isMinimized]);
 
   useEffect(() => {
     buildChart();

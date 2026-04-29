@@ -257,7 +257,7 @@ export default function AnalysisTableWindow({
         bounds="parent"
         dragHandleClassName="analysis-drag-handle"
         className="pointer-events-auto"
-        onMouseDown={onFocus}
+        onMouseDown={(e) => { e.stopPropagation(); onFocus?.(); }}
       >
         {innerContent}
       </Rnd>

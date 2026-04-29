@@ -330,7 +330,7 @@ export default function StockChartWindow({
       observer.observe(container);
       observerRef.current = observer;
     });
-  }, [data, isDark]);
+  }, [data, isDark, isMinimized]);
 
   useEffect(() => {
     buildChart();
