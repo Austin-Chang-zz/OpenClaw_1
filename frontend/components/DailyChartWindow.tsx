@@ -69,9 +69,15 @@ interface Props {
   symbol: string;
   stockName: string | null;
   onClose: () => void;
+  onMinimize?: () => void;
+  isMinimized?: boolean;
+  minimizedIdx?: number;
   zIndex?: number;
   onFocus?: () => void;
   initialOffset?: number;
+  onOpenWeekly?: (symbol: string, stockName: string | null) => void;
+  onOpenAnalysis?: (symbol: string, stockName: string | null) => void;
+  onBringChartsToFront?: () => void;
 }
 
 function fmtBig(v: number | null | undefined): string {
@@ -121,22 +127,45 @@ export default function DailyChartWindow({
   symbol,
   stockName,
   onClose,
+  onMinimize,
+  isMinimized = false,
+  minimizedIdx = 0,
   zIndex = 50,
   onFocus,
   initialOffset = 0,
+  onOpenWeekly,
+  onOpenAnalysis,
+  onBringChartsToFront,
 }: Props) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const [data, setData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<OHLCTooltip | null>(null);
   const [showFund, setShowFund] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [defaultSize] = useState(() => {
+    if (typeof window === "undefined") return { x: 400, y: 68, width: 940, height: 520 };
+    const hh = 68;
+    const w40 = Math.round(window.innerWidth * 0.4);
+    return { x: w40, y: hh, width: window.innerWidth - w40, height: window.innerHeight - hh };
+  });
   const isMobile = useIsMobile();
   const isDark = useDarkMode();
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMenu]);
 
   useEffect(() => {
     setLoading(true);
@@ -348,12 +377,39 @@ export default function DailyChartWindow({
           <span className="text-orange-300 text-[11px] hidden sm:inline">· Daily K-Chart</span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="relative" ref={menuRef}>
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setShowMenu(m => !m)}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 hover:text-white transition-colors text-sm leading-none"
+              title="Menu"
+            >⋮</button>
+            {showMenu && (
+              <div className="absolute right-0 top-7 bg-white dark:bg-slate-700 rounded-lg shadow-xl border border-slate-200 dark:border-slate-600 py-1 min-w-[172px] z-10">
+                <button
+                  className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => { setShowFund(f => !f); setShowMenu(false); }}
+                >📊 Fundamentals</button>
+                <button
+                  className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => { onOpenAnalysis?.(symbol, data?.stock_name ?? stockName); setShowMenu(false); }}
+                >🧮 Analysis Table</button>
+                <button
+                  className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => { onOpenWeekly?.(symbol, data?.stock_name ?? stockName); setShowMenu(false); }}
+                >📈 Open Weekly Chart</button>
+              </div>
+            )}
+          </div>
           <button
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => setShowFund(f => !f)}
-            className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 hover:text-white transition-colors text-sm leading-none"
-            title={showFund ? "Hide Fundamentals" : "Show Fundamentals"}
-          >⋮</button>
+            onClick={onMinimize}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 hover:text-white transition-colors text-lg leading-none"
+            title="Minimize"
+          >−</button>
           <button
             onMouseDown={(e) => e.stopPropagation()}
             onClick={onClose}
@@ -461,8 +517,41 @@ export default function DailyChartWindow({
     );
   }
 
-  const x = 90 + initialOffset * 30;
-  const y = 80 + initialOffset * 30;
+  // ── Minimized: small pill at top-right corner ─────────────────────────────
+  if (isMinimized) {
+    const topPx = 72 + minimizedIdx * 34;
+    return (
+      <div
+        className="fixed right-2 pointer-events-auto"
+        style={{ top: topPx, zIndex }}
+        onMouseDown={() => { onFocus?.(); onBringChartsToFront?.(); }}
+      >
+        <div className="flex items-center gap-1.5 bg-orange-900 border border-orange-700 text-white rounded-lg px-2.5 py-1.5 shadow-lg select-none cursor-pointer">
+          <span className="text-[11px] font-mono font-bold">D·{symbol}</span>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={onMinimize}
+            className="w-4 h-4 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 text-[10px]"
+            title="Restore"
+          >□</button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={onClose}
+            className="w-4 h-4 flex items-center justify-center rounded hover:bg-red-700 text-orange-200 text-[10px]"
+            title="Close"
+          >✕</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 flex flex-col" style={{ zIndex }}>
+        {innerContent}
+      </div>
+    );
+  }
 
   const resizeGrip = (
     <div className="absolute bottom-1 right-1 w-4 h-4 flex items-center justify-center cursor-se-resize opacity-30 hover:opacity-70 transition-opacity pointer-events-auto select-none">
@@ -477,13 +566,13 @@ export default function DailyChartWindow({
   return (
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex }}>
       <Rnd
-        default={{ x, y, width: 940, height: 580 }}
-        minWidth={500}
-        minHeight={360}
+        default={defaultSize}
+        minWidth={400}
+        minHeight={300}
         bounds="parent"
         dragHandleClassName="chart-drag-handle"
         className="pointer-events-auto"
-        onMouseDown={onFocus}
+        onMouseDown={(e) => { (e as React.MouseEvent).stopPropagation(); onFocus?.(); onBringChartsToFront?.(); }}
         resizeHandleStyles={{
           bottomRight: { width: 20, height: 20, right: 0, bottom: 0, cursor: "se-resize" },
           bottom: { cursor: "s-resize" },

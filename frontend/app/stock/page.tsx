@@ -141,7 +141,18 @@ export default function StockPage() {
   const [dailyChartWindows, setDailyChartWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
   const [analysisWindows, setAnalysisWindows] = useState<{ symbol: string; stockName: string | null }[]>([]);
   const [topZSymbol, setTopZSymbol] = useState<string | null>(null);
+  const [chartsOnTop, setChartsOnTop] = useState(true);
+  const [minimizedWeekly, setMinimizedWeekly] = useState<Set<string>>(new Set());
+  const [minimizedDaily, setMinimizedDaily] = useState<Set<string>>(new Set());
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+
+  const bringChartsToFront = () => setChartsOnTop(true);
+
+  const toggleMinimizeWeekly = (symbol: string) =>
+    setMinimizedWeekly(prev => { const n = new Set(prev); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
+
+  const toggleMinimizeDaily = (symbol: string) =>
+    setMinimizedDaily(prev => { const n = new Set(prev); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
 
   const openChartWindow = (symbol: string, stockName: string | null) => {
     setChartWindows(prev =>
@@ -270,9 +281,12 @@ export default function StockPage() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors duration-200">
-      {/* Header */}
-      <header className="bg-slate-900 text-white px-6 py-4 shadow-lg">
+    <div
+      className="min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors duration-200"
+      onClick={() => setChartsOnTop(false)}
+    >
+      {/* Header — always on top */}
+      <header className="bg-slate-900 text-white px-6 py-4 shadow-lg relative z-[100]">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <Link href="/" className="text-slate-400 hover:text-white text-sm transition-colors">← Home</Link>
@@ -313,7 +327,7 @@ export default function StockPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-2 sm:px-3 py-4 space-y-4">
+      <main className={`max-w-7xl mx-auto px-2 sm:px-3 py-4 space-y-4 relative transition-all duration-200 ${chartsOnTop ? "z-[20]" : "z-[45]"}`}>
 
         {/* Status bar */}
         {runStatus && (
@@ -683,39 +697,63 @@ export default function StockPage() {
       </main>
 
       {/* Floating chart windows — rendered outside <main> to avoid z-index clipping */}
-      {chartWindows.map((w, idx) => (
-        <StockChartWindow
-          key={w.symbol}
-          symbol={w.symbol}
-          stockName={w.stockName}
-          onClose={() => closeChartWindow(w.symbol)}
-          onFocus={() => setTopZSymbol(w.symbol)}
-          zIndex={topZSymbol === w.symbol ? 60 : 50}
-          initialOffset={idx}
-        />
-      ))}
-      {dailyChartWindows.map((w, idx) => (
-        <DailyChartWindow
-          key={w.symbol}
-          symbol={w.symbol}
-          stockName={w.stockName}
-          onClose={() => closeDailyChartWindow(w.symbol)}
-          onFocus={() => setTopZSymbol(`daily:${w.symbol}`)}
-          zIndex={topZSymbol === `daily:${w.symbol}` ? 65 : 55}
-          initialOffset={idx + chartWindows.length}
-        />
-      ))}
-      {analysisWindows.map((w, idx) => (
-        <AnalysisTableWindow
-          key={w.symbol}
-          symbol={w.symbol}
-          stockName={w.stockName}
-          onClose={() => closeAnalysisWindow(w.symbol)}
-          onFocus={() => setTopZSymbol(`analysis:${w.symbol}`)}
-          zIndex={topZSymbol === `analysis:${w.symbol}` ? 70 : 60}
-          initialOffset={idx + chartWindows.length + dailyChartWindows.length}
-        />
-      ))}
+      {chartWindows.map((w, idx) => {
+        const baseZ = chartsOnTop ? 30 : 10;
+        const focusBonus = topZSymbol === w.symbol ? 4 : 0;
+        return (
+          <StockChartWindow
+            key={w.symbol}
+            symbol={w.symbol}
+            stockName={w.stockName}
+            onClose={() => closeChartWindow(w.symbol)}
+            onMinimize={() => toggleMinimizeWeekly(w.symbol)}
+            isMinimized={minimizedWeekly.has(w.symbol)}
+            minimizedIdx={Array.from(minimizedWeekly).indexOf(w.symbol)}
+            onFocus={() => { setTopZSymbol(w.symbol); bringChartsToFront(); }}
+            onBringChartsToFront={bringChartsToFront}
+            zIndex={baseZ + focusBonus}
+            initialOffset={idx}
+            onOpenDaily={(sym, name) => openDailyChartWindow(sym, name)}
+            onOpenAnalysis={(sym, name) => openAnalysisWindow(sym, name)}
+          />
+        );
+      })}
+      {dailyChartWindows.map((w, idx) => {
+        const baseZ = chartsOnTop ? 32 : 10;
+        const focusBonus = topZSymbol === `daily:${w.symbol}` ? 4 : 0;
+        return (
+          <DailyChartWindow
+            key={w.symbol}
+            symbol={w.symbol}
+            stockName={w.stockName}
+            onClose={() => closeDailyChartWindow(w.symbol)}
+            onMinimize={() => toggleMinimizeDaily(w.symbol)}
+            isMinimized={minimizedDaily.has(w.symbol)}
+            minimizedIdx={Array.from(minimizedDaily).indexOf(w.symbol)}
+            onFocus={() => { setTopZSymbol(`daily:${w.symbol}`); bringChartsToFront(); }}
+            onBringChartsToFront={bringChartsToFront}
+            zIndex={baseZ + focusBonus}
+            initialOffset={idx + chartWindows.length}
+            onOpenWeekly={(sym, name) => openChartWindow(sym, name)}
+            onOpenAnalysis={(sym, name) => openAnalysisWindow(sym, name)}
+          />
+        );
+      })}
+      {analysisWindows.map((w, idx) => {
+        const baseZ = chartsOnTop ? 36 : 10;
+        const focusBonus = topZSymbol === `analysis:${w.symbol}` ? 4 : 0;
+        return (
+          <AnalysisTableWindow
+            key={w.symbol}
+            symbol={w.symbol}
+            stockName={w.stockName}
+            onClose={() => closeAnalysisWindow(w.symbol)}
+            onFocus={() => { setTopZSymbol(`analysis:${w.symbol}`); bringChartsToFront(); }}
+            zIndex={baseZ + focusBonus}
+            initialOffset={idx + chartWindows.length + dailyChartWindows.length}
+          />
+        );
+      })}
     </div>
   );
 }
