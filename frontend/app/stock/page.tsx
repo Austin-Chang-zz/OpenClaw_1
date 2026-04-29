@@ -161,6 +161,7 @@ export default function StockPage() {
         : [...prev, { symbol, stockName }]
     );
     setTopZSymbol(symbol);
+    setChartsOnTop(true);
   };
 
   const closeChartWindow = (symbol: string) => {
@@ -175,6 +176,7 @@ export default function StockPage() {
         : [...prev, { symbol, stockName }]
     );
     setTopZSymbol(`daily:${symbol}`);
+    setChartsOnTop(true);
   };
 
   const closeDailyChartWindow = (symbol: string) => {
@@ -189,6 +191,7 @@ export default function StockPage() {
         : [...prev, { symbol, stockName }]
     );
     setTopZSymbol(`analysis:${symbol}`);
+    setChartsOnTop(true);
   };
 
   const closeAnalysisWindow = (symbol: string) => {
@@ -283,7 +286,7 @@ export default function StockPage() {
   return (
     <div
       className="min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors duration-200"
-      onClick={() => setChartsOnTop(false)}
+      onMouseDown={() => setChartsOnTop(false)}
     >
       {/* Header — always on top */}
       <header className="bg-slate-900 text-white px-6 py-4 shadow-lg relative z-[100]">
