@@ -140,6 +140,7 @@ export default function StockChartWindow({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<OHLCTooltip | null>(null);
+  const [showFund, setShowFund] = useState(false);
   const isMobile = useIsMobile();
   const isDark = useDarkMode();
 
@@ -365,14 +366,20 @@ export default function StockChartWindow({
             · Weekly K-Chart
           </span>
         </div>
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onClose}
-          className="ml-3 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-600 text-slate-300 hover:text-white transition-colors text-base leading-none"
-          title="Close"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setShowFund(f => !f)}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-600 text-slate-400 hover:text-white transition-colors text-sm leading-none"
+            title={showFund ? "Hide Fundamentals" : "Show Fundamentals"}
+          >⋮</button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={onClose}
+            className="ml-1 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-600 text-slate-300 hover:text-white transition-colors text-base leading-none"
+            title="Close"
+          >✕</button>
+        </div>
       </div>
 
       {/* Body */}
@@ -484,7 +491,7 @@ export default function StockChartWindow({
             </div>
 
             {/* Fundamentals panel */}
-            <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50">
+            {showFund && <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50">
               <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                 Fundamentals · {data.symbol}
                 {fundamentals.currency ? ` (${fundamentals.currency})` : ""}
@@ -502,7 +509,7 @@ export default function StockChartWindow({
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
           </>
         )}
       </div>

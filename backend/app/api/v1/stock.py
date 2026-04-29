@@ -434,7 +434,7 @@ def get_daily_chart_data(
     days: int = Query(365, ge=60, le=1000, description="Number of daily bars to return"),
 ):
     """
-    Return daily OHLCV, D10/D50/D132/D260 MA lines, Parabolic SAR, and
+    Return daily OHLCV, D2/D10/D50/D132 MA lines, Parabolic SAR, and
     fundamentals for a symbol.
     """
     try:
@@ -476,7 +476,7 @@ def get_daily_chart_data(
             })
 
         ma_lines: Dict[str, List[Dict]] = {}
-        for col in ["D10", "D50", "D132", "D260"]:
+        for col in ["D2", "D10", "D50", "D132"]:
             series = []
             for ts, row in daily_df.iterrows():
                 v = _safe(row.get(col))

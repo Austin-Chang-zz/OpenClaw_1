@@ -49,7 +49,7 @@ interface ChartData {
   symbol: string;
   stock_name: string | null;
   ohlcv: OHLCBar[];
-  ma_lines: { d10: MAPoint[]; d50: MAPoint[]; d132: MAPoint[]; d260: MAPoint[] };
+  ma_lines: { d2: MAPoint[]; d10: MAPoint[]; d50: MAPoint[]; d132: MAPoint[] };
   sar: SARPoint[];
   fundamentals: Fundamentals;
 }
@@ -134,6 +134,7 @@ export default function DailyChartWindow({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<OHLCTooltip | null>(null);
+  const [showFund, setShowFund] = useState(false);
   const isMobile = useIsMobile();
   const isDark = useDarkMode();
 
@@ -207,12 +208,12 @@ export default function DailyChartWindow({
         data.ohlcv.map((b) => [b.time, b.volume])
       );
 
-      // D10/D50/D132/D260 MA lines
+      // D2/D10/D50/D132 MA lines
       const maConfigs: { key: keyof ChartData["ma_lines"]; color: string; lineWidth: 1 | 2 }[] = [
+        { key: "d2",   color: "#94a3b8", lineWidth: 1 },
         { key: "d10",  color: "#3b82f6", lineWidth: 1 },
         { key: "d50",  color: "#f97316", lineWidth: 2 },
         { key: "d132", color: "#a855f7", lineWidth: 2 },
-        { key: "d260", color: "#ef4444", lineWidth: 2 },
       ];
       for (const cfg of maConfigs) {
         const lineData = data.ma_lines[cfg.key] ?? [];
@@ -346,12 +347,20 @@ export default function DailyChartWindow({
           )}
           <span className="text-orange-300 text-[11px] hidden sm:inline">· Daily K-Chart</span>
         </div>
-        <button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={onClose}
-          className="ml-3 flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 hover:text-white transition-colors text-base leading-none"
-          title="Close"
-        >✕</button>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setShowFund(f => !f)}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 hover:text-white transition-colors text-sm leading-none"
+            title={showFund ? "Hide Fundamentals" : "Show Fundamentals"}
+          >⋮</button>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={onClose}
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-orange-700 text-orange-200 hover:text-white transition-colors text-base leading-none"
+            title="Close"
+          >✕</button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
@@ -378,10 +387,10 @@ export default function DailyChartWindow({
           <>
             <div className="flex items-center gap-3 px-3 py-1.5 bg-orange-50 dark:bg-slate-700/60 border-b border-orange-100 dark:border-slate-700 text-xs flex-shrink-0 flex-wrap">
               {([
+                { label: "D2",   color: "#94a3b8" },
                 { label: "D10",  color: "#3b82f6" },
                 { label: "D50",  color: "#f97316" },
                 { label: "D132", color: "#a855f7" },
-                { label: "D260", color: "#ef4444" },
               ] as const).map(({ label, color }) => (
                 <span key={label} className="flex items-center gap-1">
                   <span className="inline-block w-5 h-0.5 rounded" style={{ backgroundColor: color }} />
@@ -424,7 +433,7 @@ export default function DailyChartWindow({
               )}
             </div>
 
-            <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50">
+            {showFund && <div className="flex-shrink-0 border-t border-slate-100 dark:border-slate-700 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50">
               <div className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
                 Fundamentals · {data.symbol}
                 {fundamentals.currency ? ` (${fundamentals.currency})` : ""}
@@ -437,7 +446,7 @@ export default function DailyChartWindow({
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
           </>
         )}
       </div>
