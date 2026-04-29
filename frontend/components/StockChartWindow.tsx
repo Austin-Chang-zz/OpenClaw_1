@@ -529,18 +529,41 @@ export default function StockChartWindow({
   const x = 60 + initialOffset * 30;
   const y = 60 + initialOffset * 30;
 
+  const resizeGrip = (
+    <div className="absolute bottom-1 right-1 w-4 h-4 flex items-center justify-center cursor-se-resize opacity-30 hover:opacity-70 transition-opacity pointer-events-auto select-none">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="text-slate-400">
+        <path d="M9 1L1 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        <path d="M9 5L5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        <path d="M9 9H5L9 5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 pointer-events-none" style={{ zIndex }}>
       <Rnd
         default={{ x, y, width: 940, height: 580 }}
-        minWidth={640}
-        minHeight={420}
+        minWidth={500}
+        minHeight={360}
         bounds="parent"
         dragHandleClassName="chart-drag-handle"
         className="pointer-events-auto"
         onMouseDown={onFocus}
+        resizeHandleStyles={{
+          bottomRight: { width: 20, height: 20, right: 0, bottom: 0, cursor: "se-resize" },
+          bottom: { cursor: "s-resize" },
+          right: { cursor: "e-resize" },
+          left: { cursor: "w-resize" },
+          top: { cursor: "n-resize" },
+          topRight: { cursor: "ne-resize" },
+          topLeft: { cursor: "nw-resize" },
+          bottomLeft: { cursor: "sw-resize" },
+        }}
       >
-        {innerContent}
+        <div className="relative w-full h-full">
+          {innerContent}
+          {resizeGrip}
+        </div>
       </Rnd>
     </div>
   );

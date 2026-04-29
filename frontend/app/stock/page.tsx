@@ -313,7 +313,7 @@ export default function StockPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <main className="max-w-7xl mx-auto px-2 sm:px-3 py-4 space-y-4">
 
         {/* Status bar */}
         {runStatus && (
@@ -336,29 +336,6 @@ export default function StockPage() {
             )}
           </div>
         )}
-
-        {/* Theory card */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-4">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl">📐</div>
-            <div>
-              <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">ST125 / 102.5 Theory</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Uses weekly SMA crossovers (W2/W10/W26/<span className="font-medium text-slate-700 dark:text-slate-200">W52</span>) + slope direction +
-                Parabolic SAR to classify stocks into <span className="font-medium text-slate-700 dark:text-slate-200">6 phases / 28 sub-phases</span>.
-                Higher score = better entry opportunity.
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W52=D260 (1yr)</span>
-                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W26=D132 (6mo)</span>
-                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W10=D50 (10wk)</span>
-                <span className="bg-slate-100 dark:bg-slate-700 rounded px-2 py-0.5">W2=D10 (2wk)</span>
-                <span className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded px-2 py-0.5">🔴 SAR low = support</span>
-                <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded px-2 py-0.5">🔵 SAR high = pressure</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Phase Legend (collapsible) */}
         {showLegend && legend.length > 0 && (
